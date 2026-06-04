@@ -9,16 +9,27 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --blue:#003255; --fdf:#5F8CB4; --sea:#4678C8;
-  --grey:#7D878C; --bg:#edf2f7; --card:#f5f8fc;
-  --card2:#dce8f4; --border:rgba(0,50,85,.1);
+  /* Landslejr-farver fra de otte folk */
+  --p1:#5c3d54;      /* Bølgebærerne – brombær */
+  --p2:#854232;      /* Flammepusterne – kastanierød */
+  --p3:#4c542b;      /* Rodvæverne – skovbund */
+
+  /* App-palette */
+  --dark:#2a1f1a;    /* baseret på lejrens mørke naturtoner */
+  --mid:#785716;     /* Runemagerne – mørk sennep, accent */
+  --light:#f2d5a2;   /* Morgengriberne – varm vanilje */
+  --grey:#7D878C;
+  --bg:#f5f0e8;      /* varm naturlig baggrund */
+  --card:#fdfaf4;
+  --card2:#ede7d6;
+  --border:rgba(42,31,26,.1);
 }
-body{font-family:'Work Sans',sans-serif;background:var(--bg);color:var(--blue);min-height:100vh}
+body{font-family:'Work Sans',sans-serif;background:var(--bg);color:var(--dark);min-height:100vh}
 .shell{max-width:680px;margin:0 auto;padding:0 1rem 5rem}
 
 /* header */
-header{padding:1.3rem 0 1rem;display:flex;align-items:flex-end;justify-content:space-between;border-bottom:1px solid rgba(0,50,85,.14);margin-bottom:1.2rem}
-.logo{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:var(--blue);color:#fff;font-size:11px;font-weight:800;clip-path:polygon(0 0,100% 0,100% 70%,50% 100%,0 70%);flex-shrink:0}
+header{padding:1.3rem 0 1rem;display:flex;align-items:flex-end;justify-content:space-between;border-bottom:1px solid rgba(42,31,26,.14);margin-bottom:1.2rem}
+.logo{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:var(--dark);color:#fff;font-size:11px;font-weight:800;clip-path:polygon(0 0,100% 0,100% 70%,50% 100%,0 70%);flex-shrink:0}
 .site-name{font-size:18px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;display:flex;align-items:center;gap:8px}
 .site-sub{font-size:11px;color:var(--grey);margin-top:2px}
 .updated{font-size:11px;color:var(--grey);font-family:'DM Mono',monospace}
@@ -26,34 +37,39 @@ header{padding:1.3rem 0 1rem;display:flex;align-items:flex-end;justify-content:s
 /* loading / error */
 .state{text-align:center;padding:4rem 0}
 .state h2{font-size:17px;font-weight:700;margin-bottom:.4rem}
-.state p{font-size:13px;color:#1a4a6b}
-.spinner{width:26px;height:26px;border:2px solid rgba(0,50,85,.15);border-top-color:var(--fdf);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto .8rem}
+.state p{font-size:13px;color:var(--dark)}
+.spinner{width:26px;height:26px;border:2px solid rgba(42,31,26,.15);border-top-color:var(--mid);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto .8rem}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 /* point selector */
 .pts-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.1rem}
-.pt-btn{font-size:12px;font-weight:700;padding:5px 14px;border-radius:20px;border:1.5px solid rgba(0,50,85,.18);background:var(--card);color:#1a4a6b;cursor:pointer;transition:all .15s}
-.pt-btn:hover{background:var(--card2);border-color:var(--fdf)}
-.pt-btn.active{background:var(--fdf);color:#fff;border-color:var(--fdf)}
+.pt-btn{font-size:12px;font-weight:700;padding:5px 14px;border-radius:20px;border:1.5px solid rgba(42,31,26,.18);background:var(--card);color:var(--dark);cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:6px}
+.pt-btn:hover{background:var(--card2)}
+.pt-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.pt-btn.active{color:#fff;border-color:transparent}
+.pt-btn[data-id=p1].active{background:var(--p1)}
+.pt-btn[data-id=p2].active{background:var(--p2)}
+.pt-btn[data-id=p3].active{background:var(--p3)}
 
 /* days list */
 .days{display:flex;flex-direction:column;gap:5px}
 
 /* day card */
 .day-card{background:var(--card);border:1.5px solid var(--border);border-radius:14px;overflow:hidden;transition:border-color .15s}
-.day-card.open{border-color:var(--fdf)}
+.day-card.open{border-color:var(--mid)}
 .day-head{display:grid;grid-template-columns:1fr 30px 80px 64px 18px;align-items:center;gap:8px;padding:.7rem .9rem;cursor:pointer}
-.day-head:hover{background:rgba(0,50,85,.03)}
-.day-card.open .day-head{background:rgba(0,50,85,.04)}
+.day-head:hover{background:rgba(42,31,26,.03)}
+.day-card.open .day-head{background:rgba(120,87,22,.05)}
 .dn{font-size:14px;font-weight:700}
-.dn.today{color:var(--fdf)}
+.dn.today{color:var(--mid)}
 .dd{font-size:11px;color:var(--grey);font-family:'DM Mono',monospace;margin-top:1px}
 .di{font-size:21px;text-align:center}
 .dt{text-align:right}
 .dtmax{font-family:'DM Mono',monospace;font-size:14px;font-weight:600}
 .dtmin{font-family:'DM Mono',monospace;font-size:10px;color:var(--grey)}
 .dp{text-align:right}
-.dpv{font-family:'DM Mono',monospace;font-size:13px;font-weight:600;color:var(--sea)}
+.dpv{font-family:'DM Mono',monospace;font-size:13px;font-weight:600}
+.dpv.wet{color:var(--p1)}
 .dpv.dry{color:var(--grey)}
 .dpprob{font-size:10px;color:var(--grey)}
 .chev{font-size:11px;color:var(--grey);text-align:center;transition:transform .25s}
@@ -62,26 +78,25 @@ header{padding:1.3rem 0 1rem;display:flex;align-items:flex-end;justify-content:s
 /* expand */
 .expand{overflow:hidden;max-height:0;transition:max-height .3s ease}
 .day-card.open .expand{max-height:600px}
-.exp-inner{padding:.8rem .9rem 1rem;border-top:1px solid rgba(0,50,85,.08)}
+.exp-inner{padding:.8rem .9rem 1rem;border-top:1px solid rgba(42,31,26,.08)}
+.exp-label{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--grey);margin-bottom:7px}
 
 /* rain bars */
-.exp-label{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--grey);margin-bottom:7px}
 .bars{display:flex;align-items:flex-end;gap:4px;height:68px;margin-bottom:3px}
 .bar-w{flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;min-width:24px;cursor:default;position:relative}
 .bar-w:hover .tip{display:block}
-.tip{display:none;position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:var(--blue);color:#fff;font-size:9px;padding:3px 6px;border-radius:5px;white-space:nowrap;font-family:'DM Mono',monospace;z-index:10;pointer-events:none}
+.tip{display:none;position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:var(--dark);color:#fff;font-size:9px;padding:3px 6px;border-radius:5px;white-space:nowrap;font-family:'DM Mono',monospace;z-index:10;pointer-events:none}
 .bar{width:100%;border-radius:3px 3px 0 0}
 .xlbls{display:flex;gap:4px;margin-bottom:12px}
 .xlbl{flex:1;text-align:center;font-size:9px;color:var(--grey);font-family:'DM Mono',monospace;min-width:24px}
 
 /* rain list */
-.rain-list{}
-.rain-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(0,50,85,.06)}
+.rain-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(42,31,26,.06)}
 .rain-row:last-child{border-bottom:none}
 .rtime{font-family:'DM Mono',monospace;font-size:13px;font-weight:600;min-width:44px}
-.rbar-bg{flex:1;height:8px;background:rgba(0,50,85,.07);border-radius:4px;overflow:hidden}
-.rbar-fill{height:100%;border-radius:4px;background:var(--sea)}
-.rmm{font-family:'DM Mono',monospace;font-size:12px;color:var(--sea);min-width:46px;text-align:right}
+.rbar-bg{flex:1;height:8px;background:rgba(42,31,26,.07);border-radius:4px;overflow:hidden}
+.rbar-fill{height:100%;border-radius:4px}
+.rmm{font-family:'DM Mono',monospace;font-size:12px;min-width:46px;text-align:right}
 .rdesc{font-size:11px;color:var(--grey);min-width:58px;text-align:right}
 
 /* no rain */
@@ -89,9 +104,9 @@ header{padding:1.3rem 0 1rem;display:flex;align-items:flex-end;justify-content:s
 
 /* pills */
 .pills{display:flex;gap:5px;flex-wrap:wrap;margin-top:10px}
-.pill{background:rgba(70,120,200,.08);border:1px solid rgba(70,120,200,.15);border-radius:8px;padding:4px 9px;text-align:center}
+.pill{background:rgba(120,87,22,.08);border:1px solid rgba(120,87,22,.18);border-radius:8px;padding:4px 9px;text-align:center}
 .pill-l{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--grey);margin-bottom:2px}
-.pill-v{font-family:'DM Mono',monospace;font-size:13px;font-weight:600}
+.pill-v{font-family:'DM Mono',monospace;font-size:13px;font-weight:600;color:var(--dark)}
 
 @media(max-width:480px){
   .day-head{grid-template-columns:1fr 28px 70px 56px 16px;gap:5px;padding:.65rem .7rem}
@@ -113,9 +128,9 @@ header{padding:1.3rem 0 1rem;display:flex;align-items:flex-end;justify-content:s
 
 <script>
 const POINTS = [
-  { id:'p1', label:'P1', lat:56.120603, lon:9.681001 },
-  { id:'p2', label:'P2', lat:56.104814, lon:9.651731 },
-  { id:'p3', label:'P3', lat:56.119284, lon:9.647719 },
+  { id:'p1', label:'P1', lat:56.120603, lon:9.681001, color:'#5c3d54', colorLight:'rgba(92,61,84,.12)' },
+  { id:'p2', label:'P2', lat:56.104814, lon:9.651731, color:'#854232', colorLight:'rgba(133,66,50,.12)' },
+  { id:'p3', label:'P3', lat:56.119284, lon:9.647719, color:'#4c542b', colorLight:'rgba(76,84,43,.12)' },
 ];
 
 const WMO = {0:'☀️',1:'🌤️',2:'⛅',3:'☁️',45:'🌫️',48:'🌫️',51:'🌦️',53:'🌦️',55:'🌧️',61:'🌧️',63:'🌧️',65:'🌧️',71:'🌨️',73:'🌨️',75:'❄️',77:'🌨️',80:'🌦️',81:'🌧️',82:'⛈️',85:'🌨️',86:'❄️',95:'⛈️',96:'⛈️',99:'⛈️'};
@@ -124,7 +139,7 @@ const MONTHS = ['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov
 
 const wmoIcon = c => WMO[c]||'🌡️';
 const isToday = s => { const d=new Date(s),t=new Date(); return d.getDate()===t.getDate()&&d.getMonth()===t.getMonth()&&d.getFullYear()===t.getFullYear(); };
-const rainColor = mm => { if(!mm||mm<0.05)return'rgba(70,120,200,.1)'; if(mm<0.5)return'rgba(70,120,200,.35)'; if(mm<2)return'rgba(70,120,200,.65)'; if(mm<5)return'#4678C8'; return'#003255'; };
+const rainColor = (mm, col) => { if(!mm||mm<0.05)return'rgba(0,0,0,.06)'; const a=mm<0.5?.25:mm<2?.5:mm<5?.8:1; return col+Math.round(a*255).toString(16).padStart(2,'0'); };
 const rainDesc = mm => { if(!mm||mm<0.1)return'Tørt'; if(mm<0.5)return'Dug'; if(mm<2)return'Let regn'; if(mm<5)return'Regn'; if(mm<10)return'Kraftig'; return'Styrtregn'; };
 
 // State
@@ -135,7 +150,9 @@ let openIdx = 0;
 // Build point selector
 function buildPts() {
   document.getElementById('ptsRow').innerHTML = POINTS.map(p =>
-    `<button class="pt-btn${p.id===activeId?' active':''}" data-id="${p.id}">${p.label}</button>`
+    `<button class="pt-btn${p.id===activeId?' active':''}" data-id="${p.id}">
+      <span class="pt-dot" style="background:${p.color}"></span>${p.label}
+    </button>`
   ).join('');
   document.querySelectorAll('.pt-btn').forEach(b => b.addEventListener('click', () => {
     activeId = b.dataset.id;
@@ -158,13 +175,13 @@ async function fetchPoint(pt) {
 }
 
 // Render
-function buildExpand(hrs, total, prob) {
+function buildExpand(hrs, total, prob, pt) {
+  const col = pt.color;
   const wet = hrs.filter(x => x.mm >= 0.05);
   const hasRain = total >= 0.1;
   const maxMm = Math.max(...wet.map(x => x.mm), 0.5);
   const maxHourly = Math.max(...hrs.map(x => x.mm), 0);
 
-  // group consecutive wet hours
   const groups = [];
   wet.forEach(r => {
     const last = groups[groups.length-1];
@@ -177,18 +194,18 @@ function buildExpand(hrs, total, prob) {
     <div class="bars">
       ${wet.map(r => {
         const bh = Math.max((r.mm/maxMm)*90, 6);
-        return `<div class="bar-w"><div class="tip">${r.h}:00 · ${r.mm.toFixed(1)} mm</div><div class="bar" style="height:${bh}%;background:${rainColor(r.mm)}"></div></div>`;
+        return `<div class="bar-w"><div class="tip">${r.h}:00 · ${r.mm.toFixed(1)} mm</div><div class="bar" style="height:${bh}%;background:${col};opacity:${Math.max(0.2+(r.mm/maxMm)*0.8,0.25).toFixed(2)}"></div></div>`;
       }).join('')}
     </div>
     <div class="xlbls">${wet.map(r=>`<div class="xlbl">${r.h}h</div>`).join('')}</div>
     <div class="exp-label">Tidspunkter</div>
-    <div class="rain-list">
+    <div>
       ${groups.map(grp => `
         ${grp.length>1?`<div style="font-size:10px;color:var(--grey);margin:5px 0 2px">${String(grp[0].h).padStart(2,'0')}:00 – ${String(grp[grp.length-1].h).padStart(2,'0')}:59</div>`:''}
         ${grp.map(r=>`<div class="rain-row">
           <span class="rtime">${String(r.h).padStart(2,'0')}:00</span>
-          <div class="rbar-bg"><div class="rbar-fill" style="width:${Math.min((r.mm/maxMm)*100,100)}%"></div></div>
-          <span class="rmm">${r.mm.toFixed(1)} mm</span>
+          <div class="rbar-bg"><div class="rbar-fill" style="width:${Math.min((r.mm/maxMm)*100,100)}%;background:${col}"></div></div>
+          <span class="rmm" style="color:${col}">${r.mm.toFixed(1)} mm</span>
           <span class="rdesc">${rainDesc(r.mm)}</span>
         </div>`).join('')}
       `).join('')}
@@ -204,7 +221,7 @@ function buildExpand(hrs, total, prob) {
   </div>`;
 }
 
-function render(data) {
+function render(data, pt) {
   const d = data.daily;
   const h = data.hourly.precipitation;
 
@@ -228,31 +245,29 @@ function render(data) {
           <div class="dtmin">/ ${Math.round(d.temperature_2m_min[i])}°</div>
         </div>
         <div class="dp">
-          <div class="dpv${total<0.1?' dry':''}">${total<0.1?'–':total.toFixed(1)+' mm'}</div>
+          <div class="dpv${total<0.1?' dry':' wet'}" style="${total>=0.1?'color:'+pt.color:''}">${total<0.1?'–':total.toFixed(1)+' mm'}</div>
           ${prob!=null&&total>=0.1?`<div class="dpprob">${prob}%</div>`:''}
         </div>
         <div class="chev">▾</div>
       </div>
       <div class="expand" id="exp-${i}">
-        ${isOpen ? buildExpand(hrs, total, prob) : ''}
+        ${isOpen ? buildExpand(hrs, total, prob, pt) : ''}
       </div>
     </div>`;
   }).join('')}</div>`;
 
   document.getElementById('content').innerHTML = html;
 
-  document.querySelectorAll('.day-head').forEach(h => h.addEventListener('click', () => {
-    const i = parseInt(h.dataset.i);
+  document.querySelectorAll('.day-head').forEach(hd => hd.addEventListener('click', () => {
+    const i = parseInt(hd.dataset.i);
     if (openIdx === i) { openIdx = -1; }
     else {
       openIdx = i;
-      // Lazy-render expand content
       const exp = document.getElementById('exp-'+i);
-      const date = d.time[i];
       const total = d.precipitation_sum[i];
       const prob = d.precipitation_probability_max[i];
       const hrs = Array.from({length:24},(_,j)=>({h:j, mm: data.hourly.precipitation[i*24+j]||0}));
-      exp.innerHTML = buildExpand(hrs, total, prob);
+      exp.innerHTML = buildExpand(hrs, total, prob, pt);
     }
     document.querySelectorAll('.day-card').forEach((el,j) => el.classList.toggle('open', j===openIdx));
   }));
@@ -266,7 +281,7 @@ async function loadPoint() {
     const data = await fetchPoint(pt);
     const now = new Date();
     document.getElementById('updated').textContent = 'Opdateret ' + now.getHours() + ':' + String(now.getMinutes()).padStart(2,'0');
-    render(data);
+    render(data, pt);
   } catch(e) {
     document.getElementById('content').innerHTML = `<div class="state"><h2>Kunne ikke hente data</h2><p>${e.message}</p></div>`;
   }
