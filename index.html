@@ -5,343 +5,275 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://api.open-meteo.com; img-src 'self' data:;">
 <title>LandslejrVejr</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root {
-  --fdf-blue:#5F8CB4; --nat-blue:#003255; --yellow:#FFB91E;
-  --sea-blue:#4678C8; --granite:#7D878C; --green:#7DC855;
-  --text:var(--nat-blue); --text2:#1a4a6b;
-  --bg:#edf2f7; --surface:#f5f8fc; --surface2:#dce8f4;
-  --border:rgba(0,50,85,.1); --rlg:16px;
+:root{
+  --blue:#003255; --fdf:#5F8CB4; --sea:#4678C8;
+  --grey:#7D878C; --bg:#edf2f7; --card:#f5f8fc;
+  --card2:#dce8f4; --border:rgba(0,50,85,.1);
 }
-html{font-size:16px}
-body{
-  font-family:'Work Sans',sans-serif; background:var(--bg); color:var(--nat-blue);
-  min-height:100vh;
-  background-image:radial-gradient(ellipse at 20% 0%,rgba(95,140,180,.10) 0%,transparent 60%),radial-gradient(ellipse at 80% 100%,rgba(70,120,200,.08) 0%,transparent 60%);
-}
-body::before{
-  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.5;
-  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
-}
-.shell{max-width:660px;margin:0 auto;padding:0 1rem 5rem;position:relative;z-index:1}
+body{font-family:'Work Sans',sans-serif;background:var(--bg);color:var(--blue);min-height:100vh}
+.shell{max-width:680px;margin:0 auto;padding:0 1rem 5rem}
 
 /* header */
-header{padding:1.4rem 0 1rem;display:flex;align-items:flex-end;justify-content:space-between;border-bottom:1px solid rgba(0,50,85,.14);margin-bottom:1.3rem}
-.site-name{font-size:19px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--nat-blue);display:flex;align-items:center;gap:8px}
-.lv-logo{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;background:var(--nat-blue);color:#fff;font-size:11px;font-weight:800;clip-path:polygon(0 0,100% 0,100% 70%,50% 100%,0 70%);flex-shrink:0}
-.site-sub{font-size:11px;color:var(--granite);margin-top:2px}
-.updated-tag{font-size:11px;color:var(--granite);font-family:'DM Mono',monospace}
+header{padding:1.3rem 0 1rem;display:flex;align-items:flex-end;justify-content:space-between;border-bottom:1px solid rgba(0,50,85,.14);margin-bottom:1.2rem}
+.logo{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:var(--blue);color:#fff;font-size:11px;font-weight:800;clip-path:polygon(0 0,100% 0,100% 70%,50% 100%,0 70%);flex-shrink:0}
+.site-name{font-size:18px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+.site-sub{font-size:11px;color:var(--grey);margin-top:2px}
+.updated{font-size:11px;color:var(--grey);font-family:'DM Mono',monospace}
 
-/* stations */
-.stations-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.1rem}
-.st-btn{font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px;border:1.5px solid rgba(0,50,85,.18);background:var(--surface);color:#1a4a6b;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:4px}
-.st-btn:hover{background:var(--surface2);border-color:var(--fdf-blue)}
-.st-btn.active{background:var(--fdf-blue);color:#fff;border-color:var(--fdf-blue)}
-.st-dist{font-weight:300;opacity:.7}
-
-/* loading */
+/* loading / error */
 .state{text-align:center;padding:4rem 0}
-.state h2{font-size:17px;font-weight:700;margin-bottom:.3rem}
+.state h2{font-size:17px;font-weight:700;margin-bottom:.4rem}
 .state p{font-size:13px;color:#1a4a6b}
-.spinner{width:26px;height:26px;border:2px solid rgba(0,50,85,.15);border-top-color:var(--fdf-blue);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto .9rem}
+.spinner{width:26px;height:26px;border:2px solid rgba(0,50,85,.15);border-top-color:var(--fdf);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto .8rem}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-/* ── Day list ── */
-.days-list{display:flex;flex-direction:column;gap:6px}
+/* point selector */
+.pts-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.1rem}
+.pt-btn{font-size:12px;font-weight:700;padding:5px 14px;border-radius:20px;border:1.5px solid rgba(0,50,85,.18);background:var(--card);color:#1a4a6b;cursor:pointer;transition:all .15s}
+.pt-btn:hover{background:var(--card2);border-color:var(--fdf)}
+.pt-btn.active{background:var(--fdf);color:#fff;border-color:var(--fdf)}
 
-.day-item{
-  background:var(--surface);
-  border:1.5px solid rgba(0,50,85,.1);
-  border-radius:var(--rlg);
-  overflow:hidden;
-  transition:border-color .15s;
-}
-.day-item.open{border-color:var(--fdf-blue)}
+/* days list */
+.days{display:flex;flex-direction:column;gap:5px}
 
-/* day row — always visible */
-.day-row{
-  display:grid;
-  grid-template-columns:1fr 32px 90px 70px 24px;
-  align-items:center;
-  gap:8px;
-  padding:.8rem 1rem;
-  cursor:pointer;
-  user-select:none;
-}
-.day-row:hover{background:var(--surface2)}
-.day-item.open .day-row{background:rgba(0,50,85,.04)}
+/* day card */
+.day-card{background:var(--card);border:1.5px solid var(--border);border-radius:14px;overflow:hidden;transition:border-color .15s}
+.day-card.open{border-color:var(--fdf)}
+.day-head{display:grid;grid-template-columns:1fr 30px 80px 64px 18px;align-items:center;gap:8px;padding:.7rem .9rem;cursor:pointer}
+.day-head:hover{background:rgba(0,50,85,.03)}
+.day-card.open .day-head{background:rgba(0,50,85,.04)}
+.dn{font-size:14px;font-weight:700}
+.dn.today{color:var(--fdf)}
+.dd{font-size:11px;color:var(--grey);font-family:'DM Mono',monospace;margin-top:1px}
+.di{font-size:21px;text-align:center}
+.dt{text-align:right}
+.dtmax{font-family:'DM Mono',monospace;font-size:14px;font-weight:600}
+.dtmin{font-family:'DM Mono',monospace;font-size:10px;color:var(--grey)}
+.dp{text-align:right}
+.dpv{font-family:'DM Mono',monospace;font-size:13px;font-weight:600;color:var(--sea)}
+.dpv.dry{color:var(--grey)}
+.dpprob{font-size:10px;color:var(--grey)}
+.chev{font-size:11px;color:var(--grey);text-align:center;transition:transform .25s}
+.day-card.open .chev{transform:rotate(180deg)}
 
-.dr-left{}
-.dr-name{font-size:14px;font-weight:700;color:var(--nat-blue)}
-.dr-name.is-today{color:var(--fdf-blue)}
-.dr-date{font-size:11px;color:var(--granite);margin-top:1px;font-family:'DM Mono',monospace}
-.dr-icon{font-size:24px;text-align:center}
-.dr-temp{text-align:right}
-.dr-tmax{font-family:'DM Mono',monospace;font-size:16px;font-weight:600;color:var(--nat-blue)}
-.dr-tmin{font-family:'DM Mono',monospace;font-size:11px;color:var(--granite)}
-.dr-rain{text-align:right}
-.dr-rain-val{font-family:'DM Mono',monospace;font-size:13px;font-weight:600}
-.dr-rain-val.wet{color:var(--sea-blue)}
-.dr-rain-val.dry{color:var(--granite)}
-.dr-rain-prob{font-size:10px;color:var(--granite);margin-top:1px}
-.dr-chevron{font-size:12px;color:var(--granite);transition:transform .25s;text-align:center}
-.day-item.open .dr-chevron{transform:rotate(180deg)}
+/* expand */
+.expand{overflow:hidden;max-height:0;transition:max-height .3s ease}
+.day-card.open .expand{max-height:600px}
+.exp-inner{padding:.8rem .9rem 1rem;border-top:1px solid rgba(0,50,85,.08)}
 
-/* ── Expanded rain detail ── */
-.day-expand{
-  max-height:0;overflow:hidden;
-  transition:max-height .3s ease;
-}
-.day-item.open .day-expand{max-height:400px}
-.expand-inner{padding:.8rem 1rem 1rem;border-top:1px solid rgba(0,50,85,.08)}
+/* rain bars */
+.exp-label{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--grey);margin-bottom:7px}
+.bars{display:flex;align-items:flex-end;gap:4px;height:68px;margin-bottom:3px}
+.bar-w{flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;min-width:24px;cursor:default;position:relative}
+.bar-w:hover .tip{display:block}
+.tip{display:none;position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:var(--blue);color:#fff;font-size:9px;padding:3px 6px;border-radius:5px;white-space:nowrap;font-family:'DM Mono',monospace;z-index:10;pointer-events:none}
+.bar{width:100%;border-radius:3px 3px 0 0}
+.xlbls{display:flex;gap:4px;margin-bottom:12px}
+.xlbl{flex:1;text-align:center;font-size:9px;color:var(--grey);font-family:'DM Mono',monospace;min-width:24px}
 
-/* section label */
-.exp-label{
-  font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;
-  color:var(--granite);margin-bottom:.6rem;display:flex;align-items:center;gap:6px
-}
+/* rain list */
+.rain-list{}
+.rain-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(0,50,85,.06)}
+.rain-row:last-child{border-bottom:none}
+.rtime{font-family:'DM Mono',monospace;font-size:13px;font-weight:600;min-width:44px}
+.rbar-bg{flex:1;height:8px;background:rgba(0,50,85,.07);border-radius:4px;overflow:hidden}
+.rbar-fill{height:100%;border-radius:4px;background:var(--sea)}
+.rmm{font-family:'DM Mono',monospace;font-size:12px;color:var(--sea);min-width:46px;text-align:right}
+.rdesc{font-size:11px;color:var(--grey);min-width:58px;text-align:right}
 
-/* hourly rain bars */
-.rain-chart{display:flex;align-items:flex-end;gap:2px;height:80px;margin-bottom:3px}
-.rb-wrap{flex:1;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end;position:relative;cursor:default}
-.rb-wrap:hover .rb-tip{display:block}
-.rb-tip{
-  display:none;position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);
-  background:var(--nat-blue);color:#fff;font-size:9px;padding:3px 6px;border-radius:5px;
-  white-space:nowrap;font-family:'DM Mono',monospace;z-index:20;pointer-events:none
-}
-.rb-bar{width:100%;border-radius:3px 3px 0 0;min-height:2px}
-.rain-xlabels{display:flex;gap:2px;margin-bottom:.8rem}
-.rain-xlbl{flex:1;text-align:center;font-size:9px;color:var(--granite);font-family:'DM Mono',monospace}
+/* no rain */
+.no-rain{text-align:center;padding:.9rem 0;color:var(--grey);font-size:13px}
 
-/* rain events list */
-.rain-events{}
-.rain-event-row{
-  display:flex;align-items:center;gap:10px;
-  padding:.35rem 0;border-bottom:1px solid rgba(0,50,85,.06);
-}
-.rain-event-row:last-child{border-bottom:none}
-.re-time{font-family:'DM Mono',monospace;font-size:12px;font-weight:600;color:var(--nat-blue);min-width:42px}
-.re-bar-wrap{flex:1;height:8px;background:rgba(0,50,85,.07);border-radius:4px;overflow:hidden}
-.re-bar-fill{height:100%;border-radius:4px;background:var(--sea-blue)}
-.re-mm{font-family:'DM Mono',monospace;font-size:12px;color:var(--sea-blue);min-width:44px;text-align:right}
-.re-desc{font-size:11px;color:var(--granite);min-width:60px;text-align:right}
+/* pills */
+.pills{display:flex;gap:5px;flex-wrap:wrap;margin-top:10px}
+.pill{background:rgba(70,120,200,.08);border:1px solid rgba(70,120,200,.15);border-radius:8px;padding:4px 9px;text-align:center}
+.pill-l{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--grey);margin-bottom:2px}
+.pill-v{font-family:'DM Mono',monospace;font-size:13px;font-weight:600}
 
-/* summary pills */
-.exp-summary{display:flex;gap:6px;flex-wrap:wrap;margin-top:.7rem}
-.es-pill{
-  background:rgba(70,120,200,.08);border:1px solid rgba(70,120,200,.15);
-  border-radius:8px;padding:.4rem .7rem;text-align:center;
-}
-.es-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--granite);margin-bottom:2px}
-.es-val{font-family:'DM Mono',monospace;font-size:13px;font-weight:600;color:var(--nat-blue)}
-
-/* no rain message */
-.no-rain{
-  text-align:center;padding:1.2rem .5rem;color:var(--granite);font-size:13px;
-  display:flex;flex-direction:column;align-items:center;gap:4px
-}
-.no-rain-icon{font-size:28px}
-
-/* responsive */
 @media(max-width:480px){
-  .day-row{grid-template-columns:1fr 28px 80px 60px 20px;gap:5px;padding:.7rem .8rem}
-  .dr-tmax{font-size:14px}
+  .day-head{grid-template-columns:1fr 28px 70px 56px 16px;gap:5px;padding:.65rem .7rem}
 }
 </style>
 </head>
 <body>
 <div class="shell">
-
 <header>
   <div>
-    <div class="site-name"><span class="lv-logo">LV</span> LandslejrVejr</div>
-    <div class="site-sub">Ry-området · Storeknøs-tyngdepunkt · 12 dage</div>
+    <div class="site-name"><span class="logo">LV</span> LandslejrVejr</div>
+    <div class="site-sub">Vejrudsigt · 12 dage frem</div>
   </div>
-  <div class="updated-tag" id="updatedTag">—</div>
+  <div class="updated" id="updated">—</div>
 </header>
-
-<div id="content"><div class="state"><div class="spinner"></div><h2>Henter vejrdata…</h2><p>Ry</p></div></div>
-
+<div class="pts-row" id="ptsRow"></div>
+<div id="content"><div class="state"><div class="spinner"></div><h2>Henter vejrdata…</h2></div></div>
 </div>
+
 <script>
-// Ét vægtet koordinatpunkt: Storeknøs 50%, Ry 30%, Silkeborg 20%
-const CENTER_LAT = (56.027*0.50 + 56.085*0.30 + 56.172*0.20).toFixed(4);
-const CENTER_LON = (9.771 *0.50 + 9.772 *0.30 + 9.551 *0.20).toFixed(4);
+const POINTS = [
+  { id:'p1', label:'P1', lat:56.120603, lon:9.681001 },
+  { id:'p2', label:'P2', lat:56.104814, lon:9.651731 },
+  { id:'p3', label:'P3', lat:56.119284, lon:9.647719 },
+];
 
-const WMO_ICONS={0:'☀️',1:'🌤️',2:'⛅',3:'☁️',45:'🌫️',48:'🌫️',51:'🌦️',53:'🌦️',55:'🌧️',61:'🌧️',63:'🌧️',65:'🌧️',71:'🌨️',73:'🌨️',75:'❄️',77:'🌨️',80:'🌦️',81:'🌧️',82:'⛈️',85:'🌨️',86:'❄️',95:'⛈️',96:'⛈️',99:'⛈️'};
-const DAY_FULL=['Søndag','Mandag','Tirsdag','Onsdag','Torsdag','Fredag','Lørdag'];
-const MONTHS=['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec'];
+const WMO = {0:'☀️',1:'🌤️',2:'⛅',3:'☁️',45:'🌫️',48:'🌫️',51:'🌦️',53:'🌦️',55:'🌧️',61:'🌧️',63:'🌧️',65:'🌧️',71:'🌨️',73:'🌨️',75:'❄️',77:'🌨️',80:'🌦️',81:'🌧️',82:'⛈️',85:'🌨️',86:'❄️',95:'⛈️',96:'⛈️',99:'⛈️'};
+const DAYS = ['Søndag','Mandag','Tirsdag','Onsdag','Torsdag','Fredag','Lørdag'];
+const MONTHS = ['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec'];
 
-const wmoIcon=c=>WMO_ICONS[c]||'🌡️';
-function isToday(s){const d=new Date(s),t=new Date();return d.getDate()===t.getDate()&&d.getMonth()===t.getMonth()&&d.getFullYear()===t.getFullYear();}
-function rainColor(mm){if(!mm)return'rgba(95,140,180,.12)';if(mm<0.5)return'rgba(70,120,200,.3)';if(mm<2)return'rgba(70,120,200,.6)';if(mm<5)return'#4678C8';return'#003255';}
-function rainDesc(mm){if(!mm||mm<0.1)return'Tørt';if(mm<0.5)return'Dug';if(mm<2)return'Let regn';if(mm<5)return'Regn';if(mm<10)return'Kraftig';return'Styrtregn';}
+const wmoIcon = c => WMO[c]||'🌡️';
+const isToday = s => { const d=new Date(s),t=new Date(); return d.getDate()===t.getDate()&&d.getMonth()===t.getMonth()&&d.getFullYear()===t.getFullYear(); };
+const rainColor = mm => { if(!mm||mm<0.05)return'rgba(70,120,200,.1)'; if(mm<0.5)return'rgba(70,120,200,.35)'; if(mm<2)return'rgba(70,120,200,.65)'; if(mm<5)return'#4678C8'; return'#003255'; };
+const rainDesc = mm => { if(!mm||mm<0.1)return'Tørt'; if(mm<0.5)return'Dug'; if(mm<2)return'Let regn'; if(mm<5)return'Regn'; if(mm<10)return'Kraftig'; return'Styrtregn'; };
 
-let weatherCache=null;
-let openIdx=0;
+// State
+let activeId = 'p1';
+const cache = {};
+let openIdx = 0;
 
-async function fetchAll(){
-  if(weatherCache)return weatherCache;
-  const url=`https://api.open-meteo.com/v1/forecast?latitude=${CENTER_LAT}&longitude=${CENTER_LON}`
-    +`&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max,precipitation_probability_max`
-    +`&hourly=temperature_2m,precipitation`
-    +`&wind_speed_unit=ms&forecast_days=14&timezone=Europe%2FCopenhagen`;
-  let r;
-  try{r=await fetch(url,{mode:'cors'});}
-  catch(e){throw new Error('Netværksfejl: '+e.message);}
-  if(!r.ok)throw new Error('API fejl '+r.status);
-  weatherCache=await r.json();
-  return weatherCache;
+// Build point selector
+function buildPts() {
+  document.getElementById('ptsRow').innerHTML = POINTS.map(p =>
+    `<button class="pt-btn${p.id===activeId?' active':''}" data-id="${p.id}">${p.label}</button>`
+  ).join('');
+  document.querySelectorAll('.pt-btn').forEach(b => b.addEventListener('click', () => {
+    activeId = b.dataset.id;
+    buildPts();
+    loadPoint();
+  }));
 }
 
-function buildRainExpand(hrs, precipTotal, precipProb){
-  const rainyHours=hrs.filter(x=>x.precip>=0.05);
-  const hasRain=precipTotal>=0.1;
-  const maxPrecip=Math.max(...rainyHours.map(x=>x.precip),0.5);
-  const maxHourly=Math.max(...hrs.map(x=>x.precip));
+// Fetch
+async function fetchPoint(pt) {
+  if (cache[pt.id]) return cache[pt.id];
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${pt.lat}&longitude=${pt.lon}`
+    + `&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max`
+    + `&hourly=precipitation`
+    + `&wind_speed_unit=ms&forecast_days=14&timezone=Europe%2FCopenhagen`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('API fejl ' + r.status);
+  cache[pt.id] = await r.json();
+  return cache[pt.id];
+}
 
-  // Gruppér sammenhængende perioder
-  const groups=[];
-  rainyHours.forEach(r=>{
-    const last=groups[groups.length-1];
-    if(last&&r.hour-last[last.length-1].hour<=2)last.push(r);
+// Render
+function buildExpand(hrs, total, prob) {
+  const wet = hrs.filter(x => x.mm >= 0.05);
+  const hasRain = total >= 0.1;
+  const maxMm = Math.max(...wet.map(x => x.mm), 0.5);
+  const maxHourly = Math.max(...hrs.map(x => x.mm), 0);
+
+  // group consecutive wet hours
+  const groups = [];
+  wet.forEach(r => {
+    const last = groups[groups.length-1];
+    if (last && r.h - last[last.length-1].h <= 2) last.push(r);
     else groups.push([r]);
   });
 
-  if(!hasRain) return `
-  <div class="expand-inner">
-    <div class="no-rain"><span class="no-rain-icon">🌤️</span><span>Ingen nedbør forventet denne dag</span></div>
-    <div class="exp-summary">
-      <div class="es-pill"><div class="es-label">Sandsynlighed</div><div class="es-val">${precipProb!=null?precipProb+'%':'–'}</div></div>
-    </div>
-  </div>`;
-
-  return `
-  <div class="expand-inner">
-    <div class="exp-label">🌧 Nedbør · kun timer med regn</div>
-
-    <div class="rain-chart" style="gap:4px">
-      ${rainyHours.map(r=>{
-        const bh=Math.max((r.precip/maxPrecip)*90,6);
-        return `<div class="rb-wrap" style="min-width:28px">
-          <div class="rb-tip">${r.hour}:00 · ${r.precip.toFixed(1)} mm</div>
-          <div class="rb-bar" style="height:${bh}%;background:${rainColor(r.precip)}"></div>
-        </div>`;
+  const chart = hasRain ? `
+    <div class="exp-label">Nedbør · kun timer med regn</div>
+    <div class="bars">
+      ${wet.map(r => {
+        const bh = Math.max((r.mm/maxMm)*90, 6);
+        return `<div class="bar-w"><div class="tip">${r.h}:00 · ${r.mm.toFixed(1)} mm</div><div class="bar" style="height:${bh}%;background:${rainColor(r.mm)}"></div></div>`;
       }).join('')}
     </div>
-    <div class="rain-xlabels" style="gap:4px">
-      ${rainyHours.map(r=>`<div class="rain-xlbl" style="min-width:28px">${r.hour}h</div>`).join('')}
-    </div>
-
+    <div class="xlbls">${wet.map(r=>`<div class="xlbl">${r.h}h</div>`).join('')}</div>
     <div class="exp-label">Tidspunkter</div>
-    <div class="rain-events">
-      ${groups.map(grp=>`
-        ${grp.length>1?`<div style="font-size:10px;color:#7D878C;margin-bottom:3px;margin-top:6px">${String(grp[0].hour).padStart(2,'0')}:00 – ${String(grp[grp.length-1].hour).padStart(2,'0')}:59</div>`:''}
-        ${grp.map(r=>`
-          <div class="rain-event-row">
-            <span class="re-time">${String(r.hour).padStart(2,'0')}:00</span>
-            <div class="re-bar-wrap"><div class="re-bar-fill" style="width:${Math.min((r.precip/maxPrecip)*100,100)}%"></div></div>
-            <span class="re-mm">${r.precip.toFixed(1)} mm</span>
-            <span class="re-desc">${rainDesc(r.precip)}</span>
-          </div>`).join('')}
+    <div class="rain-list">
+      ${groups.map(grp => `
+        ${grp.length>1?`<div style="font-size:10px;color:var(--grey);margin:5px 0 2px">${String(grp[0].h).padStart(2,'0')}:00 – ${String(grp[grp.length-1].h).padStart(2,'0')}:59</div>`:''}
+        ${grp.map(r=>`<div class="rain-row">
+          <span class="rtime">${String(r.h).padStart(2,'0')}:00</span>
+          <div class="rbar-bg"><div class="rbar-fill" style="width:${Math.min((r.mm/maxMm)*100,100)}%"></div></div>
+          <span class="rmm">${r.mm.toFixed(1)} mm</span>
+          <span class="rdesc">${rainDesc(r.mm)}</span>
+        </div>`).join('')}
       `).join('')}
-    </div>
+    </div>` : `<div class="no-rain">☀️ Ingen nedbør forventet</div>`;
 
-    <div class="exp-summary">
-      <div class="es-pill"><div class="es-label">Total</div><div class="es-val">${precipTotal.toFixed(1)} mm</div></div>
-      <div class="es-pill"><div class="es-label">Sandsynlighed</div><div class="es-val">${precipProb!=null?precipProb+'%':'–'}</div></div>
-      <div class="es-pill"><div class="es-label">Maks/time</div><div class="es-val">${maxHourly.toFixed(1)} mm</div></div>
-      <div class="es-pill"><div class="es-label">Timer m. regn</div><div class="es-val">${rainyHours.length} t</div></div>
+  return `<div class="exp-inner">${chart}
+    <div class="pills">
+      <div class="pill"><div class="pill-l">Total</div><div class="pill-v">${total.toFixed(1)} mm</div></div>
+      <div class="pill"><div class="pill-l">Sandsynlighed</div><div class="pill-v">${prob!=null?prob+'%':'–'}</div></div>
+      <div class="pill"><div class="pill-l">Maks/time</div><div class="pill-v">${maxHourly.toFixed(1)} mm</div></div>
+      ${hasRain?`<div class="pill"><div class="pill-l">Timer m. regn</div><div class="pill-v">${wet.length} t</div></div>`:''}
     </div>
   </div>`;
 }
 
-function renderDays(data){
-  const d=data.daily;
-  const h=data.hourly;
-  const days=d.time.slice(0,12);
+function render(data) {
+  const d = data.daily;
+  const h = data.hourly.precipitation;
 
-  const html=`<div class="days-list" id="daysList">
-    ${days.map((date,i)=>{
-      const dateObj=new Date(date);
-      const today=isToday(date);
-      const tmax=d.temperature_2m_max[i];
-      const tmin=d.temperature_2m_min[i];
-      const precip=d.precipitation_sum[i];
-      const prob=d.precipitation_probability_max[i];
-      const wmo=d.weathercode[i];
+  const html = `<div class="days">${d.time.slice(0,12).map((date,i) => {
+    const obj = new Date(date);
+    const today = isToday(date);
+    const total = d.precipitation_sum[i];
+    const prob = d.precipitation_probability_max[i];
+    const hrs = Array.from({length:24},(_,j)=>({h:j, mm: h[i*24+j]||0}));
+    const isOpen = i===openIdx;
 
-      // Hourly slice for this day
-      const start=i*24;
-      const hrs=Array.from({length:24},(_,j)=>({
-        hour:j,
-        precip:h.precipitation[start+j]||0,
-        temp:h.temperature_2m[start+j],
-      }));
-
-      const isOpen=i===openIdx;
-
-      return `
-      <div class="day-item${isOpen?' open':''}" id="day-item-${i}">
-        <div class="day-row" data-i="${i}">
-          <div class="dr-left">
-            <div class="dr-name${today?' is-today':''}">${today?'I dag':DAY_FULL[dateObj.getDay()]}</div>
-            <div class="dr-date">${dateObj.getDate()}. ${MONTHS[dateObj.getMonth()]}</div>
-          </div>
-          <div class="dr-icon">${wmoIcon(wmo)}</div>
-          <div class="dr-temp">
-            <div class="dr-tmax">${Math.round(tmax)}°</div>
-            <div class="dr-tmin">/ ${Math.round(tmin)}°</div>
-          </div>
-          <div class="dr-rain">
-            <div class="dr-rain-val ${precip<0.1?'dry':'wet'}">${precip<0.1?'–':precip.toFixed(1)+' mm'}</div>
-            <div class="dr-rain-prob">${prob!=null&&precip>=0.1?prob+'% sandsynl.':''}</div>
-          </div>
-          <div class="dr-chevron">▾</div>
+    return `<div class="day-card${isOpen?' open':''}" id="dc-${i}">
+      <div class="day-head" data-i="${i}">
+        <div>
+          <div class="dn${today?' today':''}">${today?'I dag':DAYS[obj.getDay()]}</div>
+          <div class="dd">${obj.getDate()}. ${MONTHS[obj.getMonth()]}</div>
         </div>
-        <div class="day-expand" id="expand-${i}">
-          ${buildRainExpand(hrs,precip,prob)}
+        <div class="di">${wmoIcon(d.weathercode[i])}</div>
+        <div class="dt">
+          <div class="dtmax">${Math.round(d.temperature_2m_max[i])}°</div>
+          <div class="dtmin">/ ${Math.round(d.temperature_2m_min[i])}°</div>
         </div>
-      </div>`;
-    }).join('')}
-  </div>`;
+        <div class="dp">
+          <div class="dpv${total<0.1?' dry':''}">${total<0.1?'–':total.toFixed(1)+' mm'}</div>
+          ${prob!=null&&total>=0.1?`<div class="dpprob">${prob}%</div>`:''}
+        </div>
+        <div class="chev">▾</div>
+      </div>
+      <div class="expand" id="exp-${i}">
+        ${isOpen ? buildExpand(hrs, total, prob) : ''}
+      </div>
+    </div>`;
+  }).join('')}</div>`;
 
-  document.getElementById('content').innerHTML=html;
+  document.getElementById('content').innerHTML = html;
 
-  document.querySelectorAll('.day-row').forEach(row=>{
-    row.addEventListener('click',()=>{
-      const i=parseInt(row.dataset.i);
-      openIdx=(openIdx===i?-1:i);
-      // Toggle open class
-      document.querySelectorAll('.day-item').forEach((el,j)=>el.classList.toggle('open',j===openIdx));
-    });
-  });
+  document.querySelectorAll('.day-head').forEach(h => h.addEventListener('click', () => {
+    const i = parseInt(h.dataset.i);
+    if (openIdx === i) { openIdx = -1; }
+    else {
+      openIdx = i;
+      // Lazy-render expand content
+      const exp = document.getElementById('exp-'+i);
+      const date = d.time[i];
+      const total = d.precipitation_sum[i];
+      const prob = d.precipitation_probability_max[i];
+      const hrs = Array.from({length:24},(_,j)=>({h:j, mm: data.hourly.precipitation[i*24+j]||0}));
+      exp.innerHTML = buildExpand(hrs, total, prob);
+    }
+    document.querySelectorAll('.day-card').forEach((el,j) => el.classList.toggle('open', j===openIdx));
+  }));
+}
 
-  // Auto-open today
-  if(openIdx===-1){
-    openIdx=0;
-    document.getElementById('day-item-0')?.classList.add('open');
+async function loadPoint() {
+  openIdx = 0;
+  document.getElementById('content').innerHTML = '<div class="state"><div class="spinner"></div><h2>Henter vejrdata…</h2></div>';
+  const pt = POINTS.find(p => p.id === activeId);
+  try {
+    const data = await fetchPoint(pt);
+    const now = new Date();
+    document.getElementById('updated').textContent = 'Opdateret ' + now.getHours() + ':' + String(now.getMinutes()).padStart(2,'0');
+    render(data);
+  } catch(e) {
+    document.getElementById('content').innerHTML = `<div class="state"><h2>Kunne ikke hente data</h2><p>${e.message}</p></div>`;
   }
 }
 
-async function load(){
-  openIdx=0;
-  document.getElementById('content').innerHTML=`<div class="state"><div class="spinner"></div><h2>Henter data fra 3 stationer…</h2><p>${STATIONS.map(s=>s.name+' ('+Math.round(s.weight*100)+'%)').join(' · ')}</p></div>`;
-  try{
-    const data=await fetchAll();
-    const now=new Date();
-    document.getElementById('updatedTag').textContent='Opdateret '+now.getHours()+':'+String(now.getMinutes()).padStart(2,'0');
-    renderDays(data);
-  } catch(e){
-    document.getElementById('content').innerHTML=`<div class="state"><h2>Kunne ikke hente data</h2><p>${e.message}</p></div>`;
-  }
-}
-
-load();
+buildPts();
+loadPoint();
 </script>
 </body>
 </html>
