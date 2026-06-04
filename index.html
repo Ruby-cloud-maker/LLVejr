@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://api.open-meteo.com; img-src 'self' data:;">
 <title>LandslejrVejr</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -11,7 +12,7 @@
 :root {
   --fdf-blue:#5F8CB4; --nat-blue:#003255; --yellow:#FFB91E;
   --sea-blue:#4678C8; --granite:#7D878C; --green:#7DC855;
-  --text:var(--nat-blue); --text2:#1a4a6b);
+  --text:var(--nat-blue); --text2:#1a4a6b;
   --bg:#edf2f7; --surface:#f5f8fc; --surface2:#dce8f4;
   --border:rgba(0,50,85,.1); --rlg:16px;
 }
@@ -169,9 +170,9 @@ header{padding:1.4rem 0 1rem;display:flex;align-items:flex-end;justify-content:s
 </div>
 <script>
 const STATIONS=[
-  {id:'ry',         name:'Ry',        lat:56.085,lon:9.772, dist:'centrum'},
-  {id:'silkeborg',  name:'Silkeborg', lat:56.172,lon:9.551, dist:'22 km V'},
-  {id:'storeknoes', name:'Storeknøs', lat:56.027,lon:9.771, dist:'7 km S · 91 moh'},
+  {id:'storeknoes', name:'Storeknøs', lat:56.027,lon:9.771, weight:0.50},
+  {id:'ry',         name:'Ry',        lat:56.085,lon:9.772, weight:0.30},
+  {id:'silkeborg',  name:'Silkeborg', lat:56.172,lon:9.551, weight:0.20},
 ];
 
 const WMO_ICONS={0:'☀️',1:'🌤️',2:'⛅',3:'☁️',45:'🌫️',48:'🌫️',51:'🌦️',53:'🌦️',55:'🌧️',61:'🌧️',63:'🌧️',65:'🌧️',71:'🌨️',73:'🌨️',75:'❄️',77:'🌨️',80:'🌦️',81:'🌧️',82:'⛈️',85:'🌨️',86:'❄️',95:'⛈️',96:'⛈️',99:'⛈️'};
@@ -184,22 +185,49 @@ function isToday(s){const d=new Date(s),t=new Date();return d.getDate()===t.getD
 function rainColor(mm){if(!mm)return'rgba(95,140,180,.12)';if(mm<0.5)return'rgba(70,120,200,.3)';if(mm<2)return'rgba(70,120,200,.6)';if(mm<5)return'#4678C8';return'#003255';}
 function rainDesc(mm){if(!mm||mm<0.1)return'Tørt';if(mm<0.5)return'Dug';if(mm<2)return'Let regn';if(mm<5)return'Regn';if(mm<10)return'Kraftig';return'Styrtregn';}
 
-let currentStation=STATIONS[0];
-let weatherCache={};
-let openIdx=-1;
+const wavg=(vals,weights)=>vals.reduce((s,v,i)=>s+v*weights[i],0)/weights.reduce((s,w)=>s+w,0);
+function dominantWmo(codes,weights){
+  const scores={};
+  codes.forEach((c,i)=>{scores[c]=(scores[c]||0)+weights[i];});
+  return parseInt(Object.entries(scores).sort((a,b)=>b[1]-a[1])[0][0]);
+}
+function blendData(results){
+  const weights=STATIONS.map(s=>s.weight);
+  const daily={
+    time:results[0].daily.time,
+    weathercode:results[0].daily.weathercode.map((_,i)=>dominantWmo(results.map(r=>r.daily.weathercode[i]),weights)),
+    temperature_2m_max:results[0].daily.temperature_2m_max.map((_,i)=>wavg(results.map(r=>r.daily.temperature_2m_max[i]),weights)),
+    temperature_2m_min:results[0].daily.temperature_2m_min.map((_,i)=>wavg(results.map(r=>r.daily.temperature_2m_min[i]),weights)),
+    precipitation_sum:results[0].daily.precipitation_sum.map((_,i)=>wavg(results.map(r=>r.daily.precipitation_sum[i]),weights)),
+    windspeed_10m_max:results[0].daily.windspeed_10m_max.map((_,i)=>wavg(results.map(r=>r.daily.windspeed_10m_max[i]),weights)),
+    precipitation_probability_max:results[0].daily.precipitation_probability_max.map((_,i)=>Math.round(wavg(results.map(r=>r.daily.precipitation_probability_max[i]??0),weights))),
+  };
+  const hourly={
+    time:results[0].hourly.time,
+    precipitation:results[0].hourly.precipitation.map((_,i)=>wavg(results.map(r=>r.hourly.precipitation[i]||0),weights)),
+    temperature_2m:results[0].hourly.temperature_2m.map((_,i)=>wavg(results.map(r=>r.hourly.temperature_2m[i]||0),weights)),
+  };
+  return {daily,hourly};
+}
 
-async function fetchWeather(station){
-  const k=station.id;
-  if(weatherCache[k])return weatherCache[k];
-  const url=`https://api.open-meteo.com/v1/forecast?latitude=${station.lat}&longitude=${station.lon}`
-    +`&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max,windgusts_10m_max,winddirection_10m_dominant,precipitation_probability_max`
-    +`&hourly=temperature_2m,precipitation,windspeed_10m,windgusts_10m,winddirection_10m,apparent_temperature`
-    +`&wind_speed_unit=ms&forecast_days=14&timezone=Europe%2FCopenhagen`;
-  const r=await fetch(url);
-  if(!r.ok)throw new Error('API fejl '+r.status);
-  const data=await r.json();
-  weatherCache[k]=data;
-  return data;
+let weatherCache=null;
+let openIdx=0;
+
+async function fetchAll(){
+  if(weatherCache)return weatherCache;
+  const results=await Promise.all(STATIONS.map(async s=>{
+    const url=`https://api.open-meteo.com/v1/forecast?latitude=${s.lat}&longitude=${s.lon}`
+      +`&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max,precipitation_probability_max`
+      +`&hourly=temperature_2m,precipitation`
+      +`&wind_speed_unit=ms&forecast_days=14&timezone=Europe%2FCopenhagen`;
+    let r;
+    try{r=await fetch(url,{mode:'cors'});}
+    catch(e){throw new Error('Netværksfejl ('+s.name+'): '+e.message);}
+    if(!r.ok)throw new Error(s.name+': API fejl '+r.status);
+    return r.json();
+  }));
+  weatherCache=blendData(results);
+  return weatherCache;
 }
 
 function buildStations(){
@@ -334,9 +362,9 @@ function renderDays(data){
 
 async function load(){
   openIdx=0;
-  document.getElementById('content').innerHTML=`<div class="state"><div class="spinner"></div><h2>Henter vejrdata…</h2><p>${currentStation.name}</p></div>`;
+  document.getElementById('content').innerHTML=`<div class="state"><div class="spinner"></div><h2>Henter data fra 3 stationer…</h2><p>${STATIONS.map(s=>s.name+' ('+Math.round(s.weight*100)+'%)').join(' · ')}</p></div>`;
   try{
-    const data=await fetchWeather(currentStation);
+    const data=await fetchAll();
     const now=new Date();
     document.getElementById('updatedTag').textContent='Opdateret '+now.getHours()+':'+String(now.getMinutes()).padStart(2,'0');
     renderDays(data);
@@ -345,8 +373,8 @@ async function load(){
   }
 }
 
-buildStations();
 load();
+(function(){const row=document.getElementById('stationsRow');row.innerHTML='<span style="font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#7D878C;align-self:center">Kilder</span>'+STATIONS.map(s=>'<div style="display:flex;align-items:center;gap:4px;background:rgba(0,50,85,.05);border:1px solid rgba(0,50,85,.1);border-radius:20px;padding:3px 10px"><span style="font-size:11px;font-weight:600;color:#003255">'+s.name+'</span><span style="font-size:10px;color:#7D878C"> '+Math.round(s.weight*100)+'%</span></div>').join('');})();
 </script>
 </body>
 </html>
