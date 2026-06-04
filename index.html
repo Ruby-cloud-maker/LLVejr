@@ -81,6 +81,11 @@ header{padding:1.3rem 0 1rem;display:flex;align-items:flex-end;justify-content:s
 /* no rain */
 .no-rain{text-align:center;padding:.8rem 0;color:var(--grey);font-size:13px}
 
+/* rain intensity legend */
+.rain-legend{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.rl-item{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--grey)}
+.rl-swatch{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+
 /* pills */
 .pills{display:flex;gap:5px;flex-wrap:wrap;margin-top:10px}
 .pill{background:rgba(120,87,22,.07);border:1px solid rgba(120,87,22,.15);border-radius:8px;padding:4px 9px;text-align:center}
@@ -118,7 +123,16 @@ const MONTHS = ['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov
 
 const wmoIcon = c => WMO[c]||'🌡️';
 const isToday = s => { const d=new Date(s),t=new Date(); return d.getDate()===t.getDate()&&d.getMonth()===t.getMonth()&&d.getFullYear()===t.getFullYear(); };
-const rainDesc = mm => { if(!mm||mm<0.1)return'Tørt'; if(mm<0.5)return'Dug'; if(mm<2)return'Let regn'; if(mm<5)return'Regn'; if(mm<10)return'Kraftig'; return'Styrtregn'; };
+const RAIN_LEVELS = [
+  { max:0.1,  label:'Støvregn', color:'#bdc795' },  // Spireskaberne – pistacie
+  { max:2.5,  label:'Let regn', color:'#5c3d54' },   // Bølgebærerne – brombær
+  { max:10.0, label:'Moderat',  color:'#854232' },   // Flammepusterne – kastanierød
+  { max:999,  label:'Kraftig',  color:'#4c542b' },   // Rodvæverne – skovbund (mørk)
+];
+const rainLevel = mm => {
+  if (!mm || mm < 0.05) return null;
+  return RAIN_LEVELS.find(l => mm <= l.max) || RAIN_LEVELS[RAIN_LEVELS.length-1];
+};
 
 let openIdx = 0;
 let allData = null;
@@ -162,21 +176,33 @@ function buildExpand(dayIdx) {
     else groups.push([r]);
   });
 
+  const legendHtml = `<div class="rain-legend">
+    ${RAIN_LEVELS.map(l=>`<div class="rl-item"><span class="rl-swatch" style="background:${l.color}"></span>${l.label}</div>`).join('')}
+  </div>`;
+
   const chart = hasRain ? `
     <div class="exp-label">Nedbør · gennemsnit af tre punkter</div>
+    ${legendHtml}
     <div class="hour-group">
       ${groups.map(grp => `
         ${grp.length>1?`<div style="font-size:10px;color:var(--grey);padding:4px 0 2px;font-family:'DM Mono',monospace">${String(grp[0].h).padStart(2,'0')}:00 – ${String(grp[grp.length-1].h).padStart(2,'0')}:59</div>`:''}
-        ${grp.map(r=>`
+        ${grp.map(r => {
+          const lvl = rainLevel(r.mm);
+          const col = lvl ? lvl.color : 'var(--grey)';
+          const lbl = lvl ? lvl.label : '–';
+          return `
         <div class="hg-row">
           <span class="hg-time">${String(r.h).padStart(2,'0')}:00</span>
           <div class="hg-bars">
             <div class="hg-bar-row">
-              <div class="hg-bar-bg"><div class="hg-bar-fill" style="width:${Math.min((r.mm/maxMm)*100,100)}%;background:var(--mid)"></div></div>
-              <span class="hg-mm" style="color:var(--mid)">${r.mm.toFixed(1)} mm</span>
+              <span class="rl-swatch" style="background:${col}"></span>
+              <div class="hg-bar-bg"><div class="hg-bar-fill" style="width:${Math.min((r.mm/maxMm)*100,100)}%;background:${col}"></div></div>
+              <span class="hg-mm" style="color:${col}">${r.mm.toFixed(1)} mm</span>
+              <span style="font-size:10px;color:${col};min-width:52px">${lbl}</span>
             </div>
           </div>
-        </div>`).join('')}
+        </div>`;
+        }).join('')}
       `).join('')}
     </div>` : `<div class="no-rain">☀️ Ingen nedbør forventet denne dag</div>`;
 
@@ -207,10 +233,12 @@ function render() {
     const avgTotal = totals.reduce((s,v)=>s+v,0)/totals.length;
     const prob = allData[0].daily.precipitation_probability_max[i];
 
+    const lvl = rainLevel(avgTotal);
     const rainStrip = `<span class="rs-item">
-      <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:600;color:${avgTotal>=0.1?'var(--mid)':'var(--grey)'}">
+      <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:600;color:${lvl?lvl.color:'var(--grey)'}">
         ${avgTotal<0.1?'–':avgTotal.toFixed(1)+' mm'}
       </span>
+      ${lvl?`<span style="font-size:10px;color:${lvl.color};margin-left:5px">${lvl.label}</span>`:''}
       ${prob!=null&&avgTotal>=0.1?`<span style="font-size:10px;color:var(--grey);margin-left:4px">${prob}%</span>`:''}
     </span>`;
 
