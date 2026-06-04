@@ -159,25 +159,21 @@ header{padding:1.4rem 0 1rem;display:flex;align-items:flex-end;justify-content:s
 <header>
   <div>
     <div class="site-name"><span class="lv-logo">LV</span> LandslejrVejr</div>
-    <div class="site-sub">Vejrudsigt for Ry-området · 12 dage</div>
+    <div class="site-sub">Ry-området · Storeknøs-tyngdepunkt · 12 dage</div>
   </div>
   <div class="updated-tag" id="updatedTag">—</div>
 </header>
 
-<div class="stations-row" id="stationsRow"></div>
 <div id="content"><div class="state"><div class="spinner"></div><h2>Henter vejrdata…</h2><p>Ry</p></div></div>
 
 </div>
 <script>
-const STATIONS=[
-  {id:'storeknoes', name:'Storeknøs', lat:56.027,lon:9.771, weight:0.50},
-  {id:'ry',         name:'Ry',        lat:56.085,lon:9.772, weight:0.30},
-  {id:'silkeborg',  name:'Silkeborg', lat:56.172,lon:9.551, weight:0.20},
-];
+// Ét vægtet koordinatpunkt: Storeknøs 50%, Ry 30%, Silkeborg 20%
+const CENTER_LAT = (56.027*0.50 + 56.085*0.30 + 56.172*0.20).toFixed(4);
+const CENTER_LON = (9.771 *0.50 + 9.772 *0.30 + 9.551 *0.20).toFixed(4);
 
 const WMO_ICONS={0:'☀️',1:'🌤️',2:'⛅',3:'☁️',45:'🌫️',48:'🌫️',51:'🌦️',53:'🌦️',55:'🌧️',61:'🌧️',63:'🌧️',65:'🌧️',71:'🌨️',73:'🌨️',75:'❄️',77:'🌨️',80:'🌦️',81:'🌧️',82:'⛈️',85:'🌨️',86:'❄️',95:'⛈️',96:'⛈️',99:'⛈️'};
 const DAY_FULL=['Søndag','Mandag','Tirsdag','Onsdag','Torsdag','Fredag','Lørdag'];
-const DAY_SHORT=['Søn','Man','Tir','Ons','Tor','Fre','Lør'];
 const MONTHS=['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec'];
 
 const wmoIcon=c=>WMO_ICONS[c]||'🌡️';
@@ -185,109 +181,81 @@ function isToday(s){const d=new Date(s),t=new Date();return d.getDate()===t.getD
 function rainColor(mm){if(!mm)return'rgba(95,140,180,.12)';if(mm<0.5)return'rgba(70,120,200,.3)';if(mm<2)return'rgba(70,120,200,.6)';if(mm<5)return'#4678C8';return'#003255';}
 function rainDesc(mm){if(!mm||mm<0.1)return'Tørt';if(mm<0.5)return'Dug';if(mm<2)return'Let regn';if(mm<5)return'Regn';if(mm<10)return'Kraftig';return'Styrtregn';}
 
-const wavg=(vals,weights)=>vals.reduce((s,v,i)=>s+v*weights[i],0)/weights.reduce((s,w)=>s+w,0);
-function dominantWmo(codes,weights){
-  const scores={};
-  codes.forEach((c,i)=>{scores[c]=(scores[c]||0)+weights[i];});
-  return parseInt(Object.entries(scores).sort((a,b)=>b[1]-a[1])[0][0]);
-}
-function blendData(results){
-  const weights=STATIONS.map(s=>s.weight);
-  const daily={
-    time:results[0].daily.time,
-    weathercode:results[0].daily.weathercode.map((_,i)=>dominantWmo(results.map(r=>r.daily.weathercode[i]),weights)),
-    temperature_2m_max:results[0].daily.temperature_2m_max.map((_,i)=>wavg(results.map(r=>r.daily.temperature_2m_max[i]),weights)),
-    temperature_2m_min:results[0].daily.temperature_2m_min.map((_,i)=>wavg(results.map(r=>r.daily.temperature_2m_min[i]),weights)),
-    precipitation_sum:results[0].daily.precipitation_sum.map((_,i)=>wavg(results.map(r=>r.daily.precipitation_sum[i]),weights)),
-    windspeed_10m_max:results[0].daily.windspeed_10m_max.map((_,i)=>wavg(results.map(r=>r.daily.windspeed_10m_max[i]),weights)),
-    precipitation_probability_max:results[0].daily.precipitation_probability_max.map((_,i)=>Math.round(wavg(results.map(r=>r.daily.precipitation_probability_max[i]??0),weights))),
-  };
-  const hourly={
-    time:results[0].hourly.time,
-    precipitation:results[0].hourly.precipitation.map((_,i)=>wavg(results.map(r=>r.hourly.precipitation[i]||0),weights)),
-    temperature_2m:results[0].hourly.temperature_2m.map((_,i)=>wavg(results.map(r=>r.hourly.temperature_2m[i]||0),weights)),
-  };
-  return {daily,hourly};
-}
-
 let weatherCache=null;
 let openIdx=0;
 
 async function fetchAll(){
   if(weatherCache)return weatherCache;
-  const results=await Promise.all(STATIONS.map(async s=>{
-    const url=`https://api.open-meteo.com/v1/forecast?latitude=${s.lat}&longitude=${s.lon}`
-      +`&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max,precipitation_probability_max`
-      +`&hourly=temperature_2m,precipitation`
-      +`&wind_speed_unit=ms&forecast_days=14&timezone=Europe%2FCopenhagen`;
-    let r;
-    try{r=await fetch(url,{mode:'cors'});}
-    catch(e){throw new Error('Netværksfejl ('+s.name+'): '+e.message);}
-    if(!r.ok)throw new Error(s.name+': API fejl '+r.status);
-    return r.json();
-  }));
-  weatherCache=blendData(results);
+  const url=`https://api.open-meteo.com/v1/forecast?latitude=${CENTER_LAT}&longitude=${CENTER_LON}`
+    +`&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max,precipitation_probability_max`
+    +`&hourly=temperature_2m,precipitation`
+    +`&wind_speed_unit=ms&forecast_days=14&timezone=Europe%2FCopenhagen`;
+  let r;
+  try{r=await fetch(url,{mode:'cors'});}
+  catch(e){throw new Error('Netværksfejl: '+e.message);}
+  if(!r.ok)throw new Error('API fejl '+r.status);
+  weatherCache=await r.json();
   return weatherCache;
 }
 
-function buildStations(){
-  const row=document.getElementById('stationsRow');
-  row.innerHTML=STATIONS.map(s=>`
-    <button class="st-btn${s.id===currentStation.id?' active':''}" data-id="${s.id}">
-      ${s.name} <span class="st-dist">${s.dist}</span>
-    </button>`).join('');
-  row.querySelectorAll('.st-btn').forEach(btn=>btn.addEventListener('click',()=>{
-    currentStation=STATIONS.find(s=>s.id===btn.dataset.id);
-    buildStations(); load();
-  }));
-}
-
 function buildRainExpand(hrs, precipTotal, precipProb){
-  const maxPrecip=Math.max(...hrs.map(x=>x.precip),0.5);
-  const hasRain=precipTotal>=0.1;
-
-  // Rainy hours (any hour with >0.05mm)
   const rainyHours=hrs.filter(x=>x.precip>=0.05);
+  const hasRain=precipTotal>=0.1;
+  const maxPrecip=Math.max(...rainyHours.map(x=>x.precip),0.5);
+  const maxHourly=Math.max(...hrs.map(x=>x.precip));
+
+  // Gruppér sammenhængende perioder
+  const groups=[];
+  rainyHours.forEach(r=>{
+    const last=groups[groups.length-1];
+    if(last&&r.hour-last[last.length-1].hour<=2)last.push(r);
+    else groups.push([r]);
+  });
+
+  if(!hasRain) return `
+  <div class="expand-inner">
+    <div class="no-rain"><span class="no-rain-icon">🌤️</span><span>Ingen nedbør forventet denne dag</span></div>
+    <div class="exp-summary">
+      <div class="es-pill"><div class="es-label">Sandsynlighed</div><div class="es-val">${precipProb!=null?precipProb+'%':'–'}</div></div>
+    </div>
+  </div>`;
 
   return `
   <div class="expand-inner">
-    <div class="exp-label">🌧 Nedbør · time for time</div>
+    <div class="exp-label">🌧 Nedbør · kun timer med regn</div>
 
-    <div class="rain-chart">
-      ${hrs.map(r=>{
-        const pct=(r.precip/maxPrecip)*100;
-        const bh=Math.max(pct*0.9,r.precip>0.05?5:1);
-        return `<div class="rb-wrap">
-          <div class="rb-tip">${r.hour}:00 · ${r.precip.toFixed(1)} mm${r.precip>=0.1?' · '+rainDesc(r.precip):''}</div>
+    <div class="rain-chart" style="gap:4px">
+      ${rainyHours.map(r=>{
+        const bh=Math.max((r.precip/maxPrecip)*90,6);
+        return `<div class="rb-wrap" style="min-width:28px">
+          <div class="rb-tip">${r.hour}:00 · ${r.precip.toFixed(1)} mm</div>
           <div class="rb-bar" style="height:${bh}%;background:${rainColor(r.precip)}"></div>
         </div>`;
       }).join('')}
     </div>
-    <div class="rain-xlabels">
-      ${hrs.map(r=>`<div class="rain-xlbl">${r.hour%6===0?r.hour+'h':''}</div>`).join('')}
+    <div class="rain-xlabels" style="gap:4px">
+      ${rainyHours.map(r=>`<div class="rain-xlbl" style="min-width:28px">${r.hour}h</div>`).join('')}
     </div>
 
-    ${hasRain ? `
-    <div class="exp-label" style="margin-top:.1rem">Tidspunkter med nedbør</div>
+    <div class="exp-label">Tidspunkter</div>
     <div class="rain-events">
-      ${rainyHours.map(r=>`
-        <div class="rain-event-row">
-          <span class="re-time">${String(r.hour).padStart(2,'0')}:00</span>
-          <div class="re-bar-wrap"><div class="re-bar-fill" style="width:${Math.min((r.precip/maxPrecip)*100,100)}%"></div></div>
-          <span class="re-mm">${r.precip.toFixed(1)} mm</span>
-          <span class="re-desc">${rainDesc(r.precip)}</span>
-        </div>`).join('')}
-    </div>` : `
-    <div class="no-rain">
-      <span class="no-rain-icon">🌤️</span>
-      <span>Ingen nedbør forventet denne dag</span>
-    </div>`}
+      ${groups.map(grp=>`
+        ${grp.length>1?`<div style="font-size:10px;color:#7D878C;margin-bottom:3px;margin-top:6px">${String(grp[0].hour).padStart(2,'0')}:00 – ${String(grp[grp.length-1].hour).padStart(2,'0')}:59</div>`:''}
+        ${grp.map(r=>`
+          <div class="rain-event-row">
+            <span class="re-time">${String(r.hour).padStart(2,'0')}:00</span>
+            <div class="re-bar-wrap"><div class="re-bar-fill" style="width:${Math.min((r.precip/maxPrecip)*100,100)}%"></div></div>
+            <span class="re-mm">${r.precip.toFixed(1)} mm</span>
+            <span class="re-desc">${rainDesc(r.precip)}</span>
+          </div>`).join('')}
+      `).join('')}
+    </div>
 
     <div class="exp-summary">
       <div class="es-pill"><div class="es-label">Total</div><div class="es-val">${precipTotal.toFixed(1)} mm</div></div>
       <div class="es-pill"><div class="es-label">Sandsynlighed</div><div class="es-val">${precipProb!=null?precipProb+'%':'–'}</div></div>
-      <div class="es-pill"><div class="es-label">Maks/time</div><div class="es-val">${Math.max(...hrs.map(x=>x.precip)).toFixed(1)} mm</div></div>
-      ${hasRain?`<div class="es-pill"><div class="es-label">Timer med regn</div><div class="es-val">${rainyHours.length} t</div></div>`:''}
+      <div class="es-pill"><div class="es-label">Maks/time</div><div class="es-val">${maxHourly.toFixed(1)} mm</div></div>
+      <div class="es-pill"><div class="es-label">Timer m. regn</div><div class="es-val">${rainyHours.length} t</div></div>
     </div>
   </div>`;
 }
@@ -374,7 +342,6 @@ async function load(){
 }
 
 load();
-(function(){const row=document.getElementById('stationsRow');row.innerHTML='<span style="font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#7D878C;align-self:center">Kilder</span>'+STATIONS.map(s=>'<div style="display:flex;align-items:center;gap:4px;background:rgba(0,50,85,.05);border:1px solid rgba(0,50,85,.1);border-radius:20px;padding:3px 10px"><span style="font-size:11px;font-weight:600;color:#003255">'+s.name+'</span><span style="font-size:10px;color:#7D878C"> '+Math.round(s.weight*100)+'%</span></div>').join('');})();
 </script>
 </body>
 </html>
