@@ -123,15 +123,21 @@ const rainDesc = mm => { if(!mm||mm<0.1)return'Tørt'; if(mm<0.5)return'Dug'; if
 let openIdx = 0;
 let allData = null;
 
-async function fetchPoint(pt) {
+async function fetchPoint(pt, attempt=0) {
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${pt.lat}&longitude=${pt.lon}`
     + `&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max`
     + `&hourly=precipitation`
     + `&wind_speed_unit=ms&forecast_days=14&timezone=Europe%2FCopenhagen`;
   const r = await fetch(url);
+  if (r.status === 429 && attempt < 3) {
+    await new Promise(res => setTimeout(res, 1500 * (attempt+1)));
+    return fetchPoint(pt, attempt+1);
+  }
   if (!r.ok) throw new Error(`${pt.label}: API fejl ${r.status}`);
   return r.json();
 }
+
+const sleep = ms => new Promise(res => setTimeout(res, ms));
 
 function buildExpand(dayIdx) {
   // Hourly average across all three points
@@ -243,6 +249,7 @@ async function loadAll() {
   try {
     allData = [];
     for (const pt of POINTS) {
+      if (allData.length > 0) await sleep(600);
       allData.push(await fetchPoint(pt));
     }
     const now = new Date();
