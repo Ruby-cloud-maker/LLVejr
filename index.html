@@ -102,15 +102,14 @@ header{padding:1.3rem 0 1rem;display:flex;align-items:flex-end;justify-content:s
   </div>
   <div class="updated" id="updated">—</div>
 </header>
-<div class="legend" id="legend"></div>
 <div id="content"><div class="state"><div class="spinner"></div><h2>Henter vejrdata…</h2><p>Henter tre punkter parallelt</p></div></div>
 </div>
 
 <script>
 const POINTS = [
-  { id:'p1', label:'P1', lat:56.120603, lon:9.681001, color:'#5c3d54' },
-  { id:'p2', label:'P2', lat:56.104814, lon:9.651731, color:'#854232' },
-  { id:'p3', label:'P3', lat:56.119284, lon:9.647719, color:'#4c542b' },
+  { id:'p1', label:'P1', lat:56.137010, lon:9.619222, color:'#5c3d54' },
+  { id:'p2', label:'P2', lat:56.123954, lon:9.715591, color:'#854232' },
+  { id:'p3', label:'P3', lat:56.117041, lon:9.658026, color:'#4c542b' },
 ];
 
 const WMO = {0:'☀️',1:'🌤️',2:'⛅',3:'☁️',45:'🌫️',48:'🌫️',51:'🌦️',53:'🌦️',55:'🌧️',61:'🌧️',63:'🌧️',65:'🌧️',71:'🌨️',73:'🌨️',75:'❄️',77:'🌨️',80:'🌦️',81:'🌧️',82:'⛈️',85:'🌨️',86:'❄️',95:'⛈️',96:'⛈️',99:'⛈️'};
@@ -135,59 +134,54 @@ async function fetchPoint(pt) {
 }
 
 function buildExpand(dayIdx) {
-  // Find all wet hours across any point
-  const wetHours = new Set();
-  POINTS.forEach((pt, pi) => {
-    for (let h=0; h<24; h++) {
-      const mm = allData[pi].hourly.precipitation[dayIdx*24+h]||0;
-      if (mm >= 0.05) wetHours.add(h);
-    }
+  // Hourly average across all three points
+  const avgHrs = Array.from({length:24}, (_,h) => {
+    const vals = POINTS.map((_,pi) => allData[pi].hourly.precipitation[dayIdx*24+h]||0);
+    return { h, mm: vals.reduce((s,v)=>s+v,0)/vals.length };
   });
 
-  const hasRain = wetHours.size > 0;
-  const sortedHours = [...wetHours].sort((a,b)=>a-b);
+  const wet = avgHrs.filter(x => x.mm >= 0.05);
+  const hasRain = wet.length > 0;
+  const maxMm = Math.max(...avgHrs.map(x=>x.mm), 0.5);
 
-  // Max mm across all points/hours for scaling
-  const allMm = [];
-  POINTS.forEach((pt, pi) => {
-    for (let h=0; h<24; h++) allMm.push(allData[pi].hourly.precipitation[dayIdx*24+h]||0);
-  });
-  const maxMm = Math.max(...allMm, 0.5);
-
-  // Totals per point
-  const totals = POINTS.map((pt, pi) => allData[pi].daily.precipitation_sum[dayIdx]);
+  const totals = POINTS.map((_,pi) => allData[pi].daily.precipitation_sum[dayIdx]);
+  const avgTotal = totals.reduce((s,v)=>s+v,0)/totals.length;
   const prob = allData[0].daily.precipitation_probability_max[dayIdx];
 
+  // Group consecutive wet hours
+  const groups = [];
+  wet.forEach(r => {
+    const last = groups[groups.length-1];
+    if (last && r.h - last[last.length-1].h <= 2) last.push(r);
+    else groups.push([r]);
+  });
+
   const chart = hasRain ? `
-    <div class="exp-label">Nedbør · timer med regn</div>
+    <div class="exp-label">Nedbør · gennemsnit af tre punkter</div>
     <div class="hour-group">
-      ${sortedHours.map(h => `
+      ${groups.map(grp => `
+        ${grp.length>1?`<div style="font-size:10px;color:var(--grey);padding:4px 0 2px;font-family:'DM Mono',monospace">${String(grp[0].h).padStart(2,'0')}:00 – ${String(grp[grp.length-1].h).padStart(2,'0')}:59</div>`:''}
+        ${grp.map(r=>`
         <div class="hg-row">
-          <span class="hg-time">${String(h).padStart(2,'0')}:00</span>
+          <span class="hg-time">${String(r.h).padStart(2,'0')}:00</span>
           <div class="hg-bars">
-            ${POINTS.map((pt, pi) => {
-              const mm = allData[pi].hourly.precipitation[dayIdx*24+h]||0;
-              const w = Math.min((mm/maxMm)*100, 100);
-              return `<div class="hg-bar-row">
-                <span class="hg-dot" style="background:${pt.color}"></span>
-                <div class="hg-bar-bg"><div class="hg-bar-fill" style="width:${w}%;background:${pt.color}"></div></div>
-                <span class="hg-mm" style="color:${mm>=0.05?pt.color:'var(--grey)'}">${mm>=0.05?mm.toFixed(1)+' mm':'–'}</span>
-              </div>`;
-            }).join('')}
+            <div class="hg-bar-row">
+              <div class="hg-bar-bg"><div class="hg-bar-fill" style="width:${Math.min((r.mm/maxMm)*100,100)}%;background:var(--mid)"></div></div>
+              <span class="hg-mm" style="color:var(--mid)">${r.mm.toFixed(1)} mm</span>
+            </div>
           </div>
         </div>`).join('')}
+      `).join('')}
     </div>` : `<div class="no-rain">☀️ Ingen nedbør forventet denne dag</div>`;
 
-  const pillsHtml = `<div class="pills">
-    ${POINTS.map((pt,pi)=>`
-      <div class="pill">
-        <div class="pill-l" style="color:${pt.color}">${pt.label} total</div>
-        <div class="pill-v">${totals[pi].toFixed(1)} mm</div>
-      </div>`).join('')}
-    <div class="pill"><div class="pill-l">Sandsynlighed</div><div class="pill-v">${prob!=null?prob+'%':'–'}</div></div>
+  return `<div class="exp-inner">${chart}
+    <div class="pills">
+      <div class="pill"><div class="pill-l">Gns. total</div><div class="pill-v">${avgTotal.toFixed(1)} mm</div></div>
+      <div class="pill"><div class="pill-l">Sandsynlighed</div><div class="pill-v">${prob!=null?prob+'%':'–'}</div></div>
+      <div class="pill"><div class="pill-l">Gns. maks/time</div><div class="pill-v">${Math.max(...avgHrs.map(x=>x.mm)).toFixed(1)} mm</div></div>
+      ${hasRain?`<div class="pill"><div class="pill-l">Timer m. regn</div><div class="pill-v">${wet.length} t</div></div>`:''}
+    </div>
   </div>`;
-
-  return `<div class="exp-inner">${chart}${pillsHtml}</div>`;
 }
 
 function render() {
@@ -204,14 +198,15 @@ function render() {
     const today = isToday(date);
     const isOpen = i===openIdx;
     const totals = POINTS.map((_,pi) => allData[pi].daily.precipitation_sum[i]);
+    const avgTotal = totals.reduce((s,v)=>s+v,0)/totals.length;
+    const prob = allData[0].daily.precipitation_probability_max[i];
 
-    const rainStrip = POINTS.map((pt,pi) => {
-      const mm = totals[pi];
-      return `<span class="rs-item">
-        <span class="rs-dot" style="background:${pt.color}"></span>
-        <span class="rs-val ${mm<0.1?'rs-dry':''}" style="${mm>=0.1?'color:'+pt.color:''}">${mm<0.1?'–':mm.toFixed(1)+' mm'}</span>
-      </span>`;
-    }).join('<span style="color:var(--border);font-size:10px">·</span>');
+    const rainStrip = `<span class="rs-item">
+      <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:600;color:${avgTotal>=0.1?'var(--mid)':'var(--grey)'}">
+        ${avgTotal<0.1?'–':avgTotal.toFixed(1)+' mm'}
+      </span>
+      ${prob!=null&&avgTotal>=0.1?`<span style="font-size:10px;color:var(--grey);margin-left:4px">${prob}%</span>`:''}
+    </span>`;
 
     return `<div class="day-card${isOpen?' open':''}" id="dc-${i}">
       <div class="day-head" data-i="${i}">
@@ -254,11 +249,6 @@ async function loadAll() {
     document.getElementById('content').innerHTML = `<div class="state"><h2>Kunne ikke hente data</h2><p>${e.message}</p></div>`;
   }
 }
-
-// Legend
-document.getElementById('legend').innerHTML = POINTS.map(p =>
-  `<div class="leg-item"><span class="leg-dot" style="background:${p.color}"></span>${p.label}</div>`
-).join('');
 
 loadAll();
 </script>
