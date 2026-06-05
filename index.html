@@ -81,7 +81,17 @@ header{padding:1.3rem 0 1rem;display:flex;align-items:flex-end;justify-content:s
 /* no rain */
 .no-rain{text-align:center;padding:.8rem 0;color:var(--grey);font-size:13px}
 
-/* rain intensity legend */
+/* forecast section */
+.forecast-section{margin-top:1.4rem;background:var(--card);border:1.5px solid var(--border);border-radius:14px;overflow:hidden}
+.forecast-head{padding:.8rem 1rem;background:var(--dark);color:#fff;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.forecast-title{font-size:13px;font-weight:700;letter-spacing:.3px;text-transform:uppercase}
+.forecast-period{font-size:11px;opacity:.6;font-family:'DM Mono',monospace}
+.forecast-body{padding:1rem;font-size:13px;line-height:1.7;color:var(--dark)}
+.forecast-body p{margin-bottom:.6rem}
+.forecast-body p:last-child{margin-bottom:0}
+.forecast-loading{display:flex;align-items:center;gap:8px;color:var(--grey);font-size:13px;padding:.2rem 0}
+.forecast-spinner{width:14px;height:14px;border:2px solid rgba(42,31,26,.15);border-top-color:var(--mid);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+
 .rain-legend{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
 .rl-item{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--grey)}
 .rl-swatch{width:10px;height:10px;border-radius:2px;flex-shrink:0}
@@ -108,6 +118,15 @@ header{padding:1.3rem 0 1rem;display:flex;align-items:flex-end;justify-content:s
   <div class="updated" id="updated">—</div>
 </header>
 <div id="content"><div class="state"><div class="spinner"></div><h2>Henter vejrdata…</h2><p>Henter tre punkter parallelt</p></div></div>
+<div class="forecast-section" id="forecastSection" style="display:none">
+  <div class="forecast-head">
+    <span class="forecast-title">🏕 Landslejr-prognose</span>
+    <span class="forecast-period">8. – 18. juli</span>
+  </div>
+  <div class="forecast-body" id="forecastBody">
+    <div class="forecast-loading"><div class="forecast-spinner"></div>Analyserer vejrdata…</div>
+  </div>
+</div>
 </div>
 
 <script>
@@ -272,6 +291,59 @@ function render() {
   }));
 }
 
+async function buildForecast() {
+  const section = document.getElementById('forecastSection');
+  const body = document.getElementById('forecastBody');
+  section.style.display = 'block';
+
+  // Find 8-18 juli i data
+  const LEJR_START = '2025-07-08';
+  const LEJR_END   = '2025-07-18';
+  const d0 = allData[0].daily;
+
+  // Saml dagsoversigt for perioden fra alle tre punkter
+  const lines = [];
+  d0.time.forEach((date, i) => {
+    if (date < LEJR_START || date > LEJR_END) return;
+    const obj = new Date(date);
+    const dagNavn = ['søn','man','tir','ons','tor','fre','lør'][obj.getDay()];
+    const totals = POINTS.map((_,pi) => allData[pi].daily.precipitation_sum[i]);
+    const avg = totals.reduce((s,v)=>s+v,0)/totals.length;
+    const tmax = allData[0].daily.temperature_2m_max[i];
+    const tmin = allData[0].daily.temperature_2m_min[i];
+    const prob = d0.precipitation_probability_max[i];
+    lines.push(`${dagNavn} ${date}: temp ${Math.round(tmin)}–${Math.round(tmax)}°C, nedbør gns ${avg.toFixed(1)} mm, sandsynlighed ${prob??'–'}%`);
+  });
+
+  if (lines.length === 0) {
+    body.innerHTML = '<p style="color:var(--grey)">Perioden 8.–18. juli er endnu ikke inden for prognosevinduet (14 dage frem).</p>';
+    return;
+  }
+
+  const prompt = `Du er vejrvagt for FDF Landslejr 2025 i Ry-området (Midtjylland, Danmark). Nedenfor er vejrprognoserne for lejrperioden 8.–18. juli fra tre nærliggende målepunkter (gennemsnit):
+
+${lines.join('\n')}
+
+Skriv en kort, faktabaseret vejropsummering på dansk (5-8 sætninger) til lejrledelsen. Angiv hvilke dage der ser tørre ud, hvilke der ser våde ud, og om der er risiko for kraftig regn eller skybrud. Vær konkret og brug datoerne. Afslut med en enkelt linje om det samlede vejrindtryk for lejrperioden.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await res.json();
+    const text = data.content?.[0]?.text || 'Kunne ikke generere prognose.';
+    body.innerHTML = text.split('\n').filter(l=>l.trim()).map(l=>`<p>${l}</p>`).join('');
+  } catch(e) {
+    body.innerHTML = `<p style="color:var(--grey)">Kunne ikke generere AI-opsummering: ${e.message}</p>`;
+  }
+}
+
 async function loadAll() {
   document.getElementById('content').innerHTML = '<div class="state"><div class="spinner"></div><h2>Henter vejrdata…</h2><p>Tre punkter</p></div>';
   try {
@@ -283,6 +355,7 @@ async function loadAll() {
     const now = new Date();
     document.getElementById('updated').textContent = 'Opdateret ' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
     render();
+    buildForecast();
   } catch(e) {
     document.getElementById('content').innerHTML = `<div class="state"><h2>Kunne ikke hente data</h2><p>${e.message}</p></div>`;
   }
