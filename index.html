@@ -291,57 +291,145 @@ function render() {
   }));
 }
 
-async function buildForecast() {
+const MODELS = [
+  { id:'ecmwf',  name:'ECMWF',         model:'ecmwf_ifs025',      color:'#5c3d54' },
+  { id:'gfs',    name:'GFS (NOAA)',     model:'gfs_seamless',      color:'#854232' },
+  { id:'mf',     name:'Météo-France',   model:'meteofrance_seamless', color:'#4c542b' },
+];
+
+// Centerpunkt for forecast (gennemsnit af de tre punkter)
+const FC_LAT = ((56.137010+56.123954+56.117041)/3).toFixed(5);
+const FC_LON = ((9.619222+9.715591+9.658026)/3).toFixed(5);
+
+let forecastData = null;
+
+async function fetchModel(m, attempt=0) {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${FC_LAT}&longitude=${FC_LON}`
+    + `&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max`
+    + `&models=${m.model}&forecast_days=16&timezone=Europe%2FCopenhagen`;
+  const r = await fetch(url);
+  if (r.status === 429 && attempt < 3) {
+    await new Promise(res => setTimeout(res, 1500*(attempt+1)));
+    return fetchModel(m, attempt+1);
+  }
+  if (!r.ok) throw new Error(`${m.name}: API fejl ${r.status}`);
+  return r.json();
+}
+
+async function loadForecast() {
   const section = document.getElementById('forecastSection');
   const body = document.getElementById('forecastBody');
   section.style.display = 'block';
+  body.innerHTML = '<div class="forecast-loading"><div class="forecast-spinner"></div>Henter tre vejrmodeller…</div>';
 
-  // Find 8-18 juli i data
+  try {
+    forecastData = [];
+    for (const m of MODELS) {
+      if (forecastData.length > 0) await sleep(600);
+      forecastData.push({ model: m, data: await fetchModel(m) });
+    }
+    buildForecast();
+  } catch(e) {
+    body.innerHTML = `<p style="color:var(--grey)">Kunne ikke hente modeldata: ${e.message}</p>`;
+  }
+}
+
+function buildForecast() {
+  const body = document.getElementById('forecastBody');
   const LEJR_START = '2025-07-08';
   const LEJR_END   = '2025-07-18';
-  const d0 = allData[0].daily;
+  const DAGNAVNE = ['søn','man','tir','ons','tor','fre','lør'];
+  const MDNAVNE  = ['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec'];
 
-  // Saml dagsoversigt for perioden fra alle tre punkter
-  const lines = [];
-  d0.time.forEach((date, i) => {
-    if (date < LEJR_START || date > LEJR_END) return;
-    const obj = new Date(date);
-    const dagNavn = ['søn','man','tir','ons','tor','fre','lør'][obj.getDay()];
-    const totals = POINTS.map((_,pi) => allData[pi].daily.precipitation_sum[i]);
-    const avg = totals.reduce((s,v)=>s+v,0)/totals.length;
-    const tmax = allData[0].daily.temperature_2m_max[i];
-    const tmin = allData[0].daily.temperature_2m_min[i];
-    const prob = d0.precipitation_probability_max[i];
-    lines.push(`${dagNavn} ${date}: temp ${Math.round(tmin)}–${Math.round(tmax)}°C, nedbør gns ${avg.toFixed(1)} mm, sandsynlighed ${prob??'–'}%`);
-  });
+  // Find lejrdage i første models data
+  const dates = forecastData[0].data.daily.time;
+  const lejrIdx = dates.reduce((acc, d, i) => {
+    if (d >= LEJR_START && d <= LEJR_END) acc.push(i);
+    return acc;
+  }, []);
 
-  if (lines.length === 0) {
-    body.innerHTML = '<p style="color:var(--grey)">Perioden 8.–18. juli er endnu ikke inden for prognosevinduet (14 dage frem).</p>';
+  if (lejrIdx.length === 0) {
+    body.innerHTML = '<p style="color:var(--grey)">Perioden 8.–18. juli er endnu ikke inden for prognosevinduet (16 dage frem). Kom tilbage tættere på lejren.</p>';
     return;
   }
 
-  const prompt = `Du er vejrvagt for FDF Landslejr 2025 i Ry-området (Midtjylland, Danmark). Nedenfor er vejrprognoserne for lejrperioden 8.–18. juli fra tre nærliggende målepunkter (gennemsnit):
+  // Per dag: saml data fra alle tre modeller
+  const dagData = lejrIdx.map(i => {
+    const date = dates[i];
+    const obj = new Date(date);
+    const models = forecastData.map(fd => ({
+      name:  fd.model.name,
+      color: fd.model.color,
+      precip: fd.data.daily.precipitation_sum[i] ?? 0,
+      tmax:   Math.round(fd.data.daily.temperature_2m_max[i] ?? 0),
+      tmin:   Math.round(fd.data.daily.temperature_2m_min[i] ?? 0),
+      prob:   fd.data.daily.precipitation_probability_max[i],
+    }));
+    const precipVals = models.map(m => m.precip);
+    const avgPrecip  = precipVals.reduce((s,v)=>s+v,0)/precipVals.length;
+    const maxDiff    = Math.max(...precipVals) - Math.min(...precipVals);
+    const enighed    = maxDiff < 1 ? 'høj' : maxDiff < 5 ? 'middel' : 'lav';
+    const enighedCol = maxDiff < 1 ? '#4c542b' : maxDiff < 5 ? '#785716' : '#854232';
+    return { date, obj, models, avgPrecip, maxDiff, enighed, enighedCol };
+  });
 
-${lines.join('\n')}
+  // Byg HTML
+  const fmtD = d => `${DAGNAVNE[d.obj.getDay()]} ${d.obj.getDate()}/${d.obj.getMonth()+1}`;
 
-Skriv en kort, faktabaseret vejropsummering på dansk (5-8 sætninger) til lejrledelsen. Angiv hvilke dage der ser tørre ud, hvilke der ser våde ud, og om der er risiko for kraftig regn eller skybrud. Vær konkret og brug datoerne. Afslut med en enkelt linje om det samlede vejrindtryk for lejrperioden.`;
+  // Modelforklaring
+  const modelLegend = `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+    ${MODELS.map(m=>`<span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--grey)">
+      <span style="width:8px;height:8px;border-radius:50%;background:${m.color};flex-shrink:0"></span>${m.name}
+    </span>`).join('')}
+    <span style="font-size:10px;color:var(--grey);margin-left:4px">· Enighed: <span style="color:#4c542b">●</span> høj <span style="color:#785716">●</span> middel <span style="color:#854232">●</span> lav</span>
+  </div>`;
 
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-    const data = await res.json();
-    const text = data.content?.[0]?.text || 'Kunne ikke generere prognose.';
-    body.innerHTML = text.split('\n').filter(l=>l.trim()).map(l=>`<p>${l}</p>`).join('');
-  } catch(e) {
-    body.innerHTML = `<p style="color:var(--grey)">Kunne ikke generere AI-opsummering: ${e.message}</p>`;
-  }
+  // Dag-tabel
+  const rows = dagData.map(d => {
+    const lvl = rainLevel(d.avgPrecip);
+    const precipCol = lvl ? lvl.color : 'var(--grey)';
+    const modelCols = d.models.map(m => {
+      const l = rainLevel(m.precip);
+      return `<td style="font-family:'DM Mono',monospace;font-size:11px;color:${l?l.color:'var(--grey)'};text-align:right;padding:4px 6px">${m.precip<0.1?'–':m.precip.toFixed(1)}</td>`;
+    }).join('');
+    return `<tr style="border-bottom:1px solid rgba(42,31,26,.07)">
+      <td style="font-size:12px;font-weight:600;padding:5px 6px;white-space:nowrap">${fmtD(d)}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:12px;font-weight:700;color:${precipCol};text-align:right;padding:5px 6px">${d.avgPrecip<0.1?'–':d.avgPrecip.toFixed(1)+' mm'}</td>
+      ${modelCols}
+      <td style="text-align:center;padding:5px 6px"><span title="Modelenighed: ${d.enighed}" style="font-size:10px;color:${d.enighedCol}">●</span></td>
+    </tr>`;
+  }).join('');
+
+  const tabel = `<div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead>
+        <tr style="border-bottom:2px solid rgba(42,31,26,.12)">
+          <th style="text-align:left;padding:4px 6px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--grey)">Dag</th>
+          <th style="text-align:right;padding:4px 6px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--grey)">Gns.</th>
+          ${MODELS.map(m=>`<th style="text-align:right;padding:4px 6px;font-size:9px;font-weight:700;letter-spacing:.4px;color:${m.color}">${m.name}</th>`).join('')}
+          <th style="text-align:center;padding:4px 6px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--grey)">Enighed</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+
+  // Tekstopsummering
+  const lavEnighed = dagData.filter(d=>d.enighed==='lav');
+  const højEnighed = dagData.filter(d=>d.enighed==='høj'&&d.avgPrecip>=0.5);
+  const vådest = [...dagData].sort((a,b)=>b.avgPrecip-a.avgPrecip)[0];
+  const snit = dagData.reduce((s,d)=>s+d.avgPrecip,0)/dagData.length;
+  const indtryk = snit<0.5?'overvejende tørt':snit<3?'blandet med let regn':snit<8?'relativt vådt':'meget vådt';
+
+  const opsummering = [
+    `<strong>Samlet indtryk:</strong> ${indtryk} (${snit.toFixed(1)} mm/dag i snit).`,
+    vådest && vådest.avgPrecip >= 0.5 ? `Vådeste dag: ${fmtD(vådest)} med ${vådest.avgPrecip.toFixed(1)} mm i gennemsnit.` : '',
+    højEnighed.length > 0 ? `Alle tre modeller er enige om regn: ${højEnighed.map(fmtD).join(', ')}.` : '',
+    lavEnighed.length > 0 ? `⚠️ Stor usikkerhed (modellerne er uenige): ${lavEnighed.map(fmtD).join(', ')}.` : 'Modellerne er generelt enige om perioden.',
+  ].filter(Boolean).map(t=>`<p style="margin-bottom:.5rem">${t}</p>`).join('');
+
+  body.innerHTML = modelLegend + tabel + `<div style="margin-top:10px;font-size:12px;line-height:1.6">${opsummering}</div>`
+    + `<p style="margin-top:8px;font-size:10px;color:var(--grey)">Kilder: ECMWF IFS · GFS (NOAA) · Météo-France · via Open-Meteo · ${lejrIdx.length} dage dækket</p>`;
 }
 
 async function loadAll() {
@@ -355,7 +443,7 @@ async function loadAll() {
     const now = new Date();
     document.getElementById('updated').textContent = 'Opdateret ' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
     render();
-    buildForecast();
+    loadForecast();
   } catch(e) {
     document.getElementById('content').innerHTML = `<div class="state"><h2>Kunne ikke hente data</h2><p>${e.message}</p></div>`;
   }
