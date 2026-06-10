@@ -338,27 +338,19 @@ function buildForecast() {
   const LEJR_START = '2025-07-08';
   const LEJR_END   = '2025-07-18';
   const DAGNAVNE = ['søn','man','tir','ons','tor','fre','lør'];
-  const MDNAVNE  = ['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec'];
 
-  // Find lejrdage i første models data
   const dates = forecastData[0].data.daily.time;
-  const lejrIdx = dates.reduce((acc, d, i) => {
-    if (d >= LEJR_START && d <= LEJR_END) acc.push(i);
-    return acc;
-  }, []);
 
-  if (lejrIdx.length === 0) {
-    body.innerHTML = '<p style="color:var(--grey)">Perioden 8.–18. juli er endnu ikke inden for prognosevinduet (16 dage frem). Kom tilbage tættere på lejren.</p>';
-    return;
-  }
+  // Brug alle tilgængelige dage
+  const allIdx = dates.map((_,i) => i);
 
-  // Per dag: saml data fra alle tre modeller
-  const dagData = lejrIdx.map((i, rowIdx) => {
+  const dagData = allIdx.map((i, rowIdx) => {
     const date = dates[i];
     const obj = new Date(date);
+    const isLejr = date >= LEJR_START && date <= LEJR_END;
     const models = forecastData.map(fd => ({
-      name:  fd.model.name,
-      color: fd.model.color,
+      name:   fd.model.name,
+      color:  fd.model.color,
       precip: fd.data.daily.precipitation_sum[i] ?? 0,
       tmax:   Math.round(fd.data.daily.temperature_2m_max[i] ?? 0),
       tmin:   Math.round(fd.data.daily.temperature_2m_min[i] ?? 0),
@@ -369,32 +361,34 @@ function buildForecast() {
     const maxDiff    = Math.max(...precipVals) - Math.min(...precipVals);
     const enighed    = maxDiff < 1 ? 'høj' : maxDiff < 5 ? 'middel' : 'lav';
     const enighedCol = maxDiff < 1 ? '#4c542b' : maxDiff < 5 ? '#785716' : '#854232';
-    return { date, obj, models, avgPrecip, maxDiff, enighed, enighedCol, rowIdx };
+    const unsure     = rowIdx >= 9;
+    return { date, obj, models, avgPrecip, maxDiff, enighed, enighedCol, rowIdx, isLejr, unsure };
   });
 
-  // Byg HTML
   const fmtD = d => `${DAGNAVNE[d.obj.getDay()]} ${d.obj.getDate()}/${d.obj.getMonth()+1}`;
 
-  // Modelforklaring
-  const modelLegend = `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+  const modelLegend = `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
     ${MODELS.map(m=>`<span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--grey)">
       <span style="width:8px;height:8px;border-radius:50%;background:${m.color};flex-shrink:0"></span>${m.name}
     </span>`).join('')}
-    <span style="font-size:10px;color:var(--grey);margin-left:4px">· Enighed: <span style="color:#4c542b">●</span> høj <span style="color:#785716">●</span> middel <span style="color:#854232">●</span> lav</span>
+    <span style="font-size:10px;color:var(--grey);margin-left:4px">Enighed: <span style="color:#4c542b">●</span> høj <span style="color:#785716">●</span> middel <span style="color:#854232">●</span> lav</span>
+    <span style="font-size:10px;color:var(--grey)">· ~ = usikker (dag 10+)</span>
+    <span style="font-size:10px;background:rgba(120,87,22,.12);padding:1px 6px;border-radius:4px;color:var(--mid)">🏕 = lejrperiode</span>
   </div>`;
 
-  // Dag-tabel
   const rows = dagData.map(d => {
     const lvl = rainLevel(d.avgPrecip);
     const precipCol = lvl ? lvl.color : 'var(--grey)';
-    const unsure = d.rowIdx >= 9;
-    const rowStyle = unsure ? 'opacity:.65;font-style:italic' : '';
+    const rowBg = d.isLejr ? 'background:rgba(120,87,22,.07);' : '';
+    const rowStyle = d.unsure ? 'opacity:.6;font-style:italic;' : '';
     const modelCols = d.models.map(m => {
       const l = rainLevel(m.precip);
       return `<td style="font-family:'DM Mono',monospace;font-size:11px;color:${l?l.color:'var(--grey)'};text-align:right;padding:4px 6px">${m.precip<0.1?'–':m.precip.toFixed(1)}</td>`;
     }).join('');
-    return `<tr style="border-bottom:1px solid rgba(42,31,26,.07);${rowStyle}">
-      <td style="font-size:12px;font-weight:600;padding:5px 6px;white-space:nowrap">${fmtD(d)}${unsure?' <span title="Usikker prognose (dag 10+)" style="font-size:9px;color:var(--grey)">~</span>':''}</td>
+    return `<tr style="border-bottom:1px solid rgba(42,31,26,.07);${rowBg}${rowStyle}">
+      <td style="font-size:12px;font-weight:600;padding:5px 6px;white-space:nowrap">
+        ${d.isLejr?'🏕 ':''}${fmtD(d)}${d.unsure?' <span style="font-size:9px;color:var(--grey)">~</span>':''}
+      </td>
       <td style="font-family:'DM Mono',monospace;font-size:12px;font-weight:700;color:${precipCol};text-align:right;padding:5px 6px">${d.avgPrecip<0.1?'–':d.avgPrecip.toFixed(1)+' mm'}</td>
       ${modelCols}
       <td style="text-align:center;padding:5px 6px"><span title="Modelenighed: ${d.enighed}" style="font-size:10px;color:${d.enighedCol}">●</span></td>
@@ -415,22 +409,26 @@ function buildForecast() {
     </table>
   </div>`;
 
-  // Tekstopsummering
+  // Opsummering
+  const snit = dagData.reduce((s,d)=>s+d.avgPrecip,0)/dagData.length;
   const lavEnighed = dagData.filter(d=>d.enighed==='lav');
   const højEnighed = dagData.filter(d=>d.enighed==='høj'&&d.avgPrecip>=0.5);
   const vådest = [...dagData].sort((a,b)=>b.avgPrecip-a.avgPrecip)[0];
-  const snit = dagData.reduce((s,d)=>s+d.avgPrecip,0)/dagData.length;
   const indtryk = snit<0.5?'overvejende tørt':snit<3?'blandet med let regn':snit<8?'relativt vådt':'meget vådt';
+  const lejrDage = dagData.filter(d=>d.isLejr);
+  const lejrSnit = lejrDage.length>0 ? lejrDage.reduce((s,d)=>s+d.avgPrecip,0)/lejrDage.length : null;
 
   const opsummering = [
-    `<strong>Samlet indtryk:</strong> ${indtryk} (${snit.toFixed(1)} mm/dag i snit).`,
-    vådest && vådest.avgPrecip >= 0.5 ? `Vådeste dag: ${fmtD(vådest)} med ${vådest.avgPrecip.toFixed(1)} mm i gennemsnit.` : '',
-    højEnighed.length > 0 ? `Alle tre modeller er enige om regn: ${højEnighed.map(fmtD).join(', ')}.` : '',
-    lavEnighed.length > 0 ? `⚠️ Stor usikkerhed (modellerne er uenige): ${lavEnighed.map(fmtD).join(', ')}.` : 'Modellerne er generelt enige om perioden.',
+    `<strong>De næste 16 dage:</strong> ${indtryk} (${snit.toFixed(1)} mm/dag i snit).`,
+    vådest&&vådest.avgPrecip>=0.5 ? `Vådeste dag: ${fmtD(vådest)} med ${vådest.avgPrecip.toFixed(1)} mm.` : '',
+    lejrSnit!==null ? `<strong>Lejrperiode (${lejrDage.length} dage dækket):</strong> ${lejrSnit.toFixed(1)} mm/dag i snit — ${lejrSnit<0.5?'ser tørt ud':lejrSnit<3?'blandet vejr':lejrSnit<8?'relativt vådt':'meget vådt'}.` : '',
+    højEnighed.length>0 ? `Begge modeller enige om regn: ${højEnighed.map(fmtD).join(', ')}.` : '',
+    lavEnighed.length>0 ? `⚠️ Stor usikkerhed (modellerne er uenige): ${lavEnighed.slice(0,4).map(fmtD).join(', ')}${lavEnighed.length>4?' m.fl.':''}.` : 'Modellerne er generelt enige.',
   ].filter(Boolean).map(t=>`<p style="margin-bottom:.5rem">${t}</p>`).join('');
 
-  body.innerHTML = modelLegend + tabel + `<div style="margin-top:10px;font-size:12px;line-height:1.6">${opsummering}</div>`
-    + `<p style="margin-top:8px;font-size:10px;color:var(--grey)">Kilder: ECMWF IFS · GFS (NOAA) · via Open-Meteo · ${lejrIdx.length} dage dækket · Dage markeret ~ er dag 10+ og bør tages med forbehold</p>`;
+  body.innerHTML = modelLegend + tabel
+    + `<div style="margin-top:10px;font-size:12px;line-height:1.6">${opsummering}</div>`
+    + `<p style="margin-top:8px;font-size:10px;color:var(--grey)">Kilder: ECMWF IFS · GFS (NOAA) · via Open-Meteo · Dage 10–16 er usikre (~)</p>`;
 }
 
 async function loadAll() {
