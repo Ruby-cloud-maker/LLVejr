@@ -113,11 +113,11 @@ header{padding:1.3rem 0 1rem;display:flex;align-items:flex-end;justify-content:s
 <header>
   <div>
     <div class="site-name"><span class="logo">LV</span> LandslejrVejr</div>
-    <div class="site-sub">Tre målepunkter · 12 dage frem</div>
+    <div class="site-sub">Tre målepunkter · 16 dage frem</div>
   </div>
   <div class="updated" id="updated">—</div>
 </header>
-<div id="content"><div class="state"><div class="spinner"></div><h2>Henter vejrdata…</h2><p>Henter tre punkter parallelt</p></div></div>
+<div id="content"><div class="state"><div class="spinner"></div><h2>Henter vejrdata…</h2><p>Tre punkter</p></div></div>
 <div class="forecast-section" id="forecastSection" style="display:none">
   <div class="forecast-head">
     <span class="forecast-title">🏕 Landslejr-prognose</span>
@@ -160,7 +160,7 @@ async function fetchPoint(pt, attempt=0) {
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${pt.lat}&longitude=${pt.lon}`
     + `&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max`
     + `&hourly=precipitation`
-    + `&wind_speed_unit=ms&forecast_days=14&timezone=Europe%2FCopenhagen`;
+    + `&wind_speed_unit=ms&forecast_days=16&timezone=Europe%2FCopenhagen`;
   const r = await fetch(url);
   if (r.status === 429 && attempt < 3) {
     await new Promise(res => setTimeout(res, 1500 * (attempt+1)));
@@ -244,7 +244,7 @@ function render() {
     return codes.reduce((worst, c) => c > worst ? c : worst, 0);
   });
 
-  const html = `<div class="days">${d0.time.slice(0,12).map((date,i) => {
+  const html = `<div class="days">${d0.time.slice(0,16).map((date,i) => {
     const obj = new Date(date);
     const today = isToday(date);
     const isOpen = i===openIdx;
@@ -292,9 +292,8 @@ function render() {
 }
 
 const MODELS = [
-  { id:'ecmwf',  name:'ECMWF',         model:'ecmwf_ifs025',      color:'#5c3d54' },
-  { id:'gfs',    name:'GFS (NOAA)',     model:'gfs_seamless',      color:'#854232' },
-  { id:'mf',     name:'Météo-France',   model:'meteofrance_seamless', color:'#4c542b' },
+  { id:'ecmwf', name:'ECMWF',     model:'ecmwf_ifs025', color:'#5c3d54' },
+  { id:'gfs',   name:'GFS (NOAA)', model:'gfs_seamless', color:'#854232' },
 ];
 
 // Centerpunkt for forecast (gennemsnit af de tre punkter)
@@ -354,7 +353,7 @@ function buildForecast() {
   }
 
   // Per dag: saml data fra alle tre modeller
-  const dagData = lejrIdx.map(i => {
+  const dagData = lejrIdx.map((i, rowIdx) => {
     const date = dates[i];
     const obj = new Date(date);
     const models = forecastData.map(fd => ({
@@ -370,7 +369,7 @@ function buildForecast() {
     const maxDiff    = Math.max(...precipVals) - Math.min(...precipVals);
     const enighed    = maxDiff < 1 ? 'høj' : maxDiff < 5 ? 'middel' : 'lav';
     const enighedCol = maxDiff < 1 ? '#4c542b' : maxDiff < 5 ? '#785716' : '#854232';
-    return { date, obj, models, avgPrecip, maxDiff, enighed, enighedCol };
+    return { date, obj, models, avgPrecip, maxDiff, enighed, enighedCol, rowIdx };
   });
 
   // Byg HTML
@@ -388,12 +387,14 @@ function buildForecast() {
   const rows = dagData.map(d => {
     const lvl = rainLevel(d.avgPrecip);
     const precipCol = lvl ? lvl.color : 'var(--grey)';
+    const unsure = d.rowIdx >= 9;
+    const rowStyle = unsure ? 'opacity:.65;font-style:italic' : '';
     const modelCols = d.models.map(m => {
       const l = rainLevel(m.precip);
       return `<td style="font-family:'DM Mono',monospace;font-size:11px;color:${l?l.color:'var(--grey)'};text-align:right;padding:4px 6px">${m.precip<0.1?'–':m.precip.toFixed(1)}</td>`;
     }).join('');
-    return `<tr style="border-bottom:1px solid rgba(42,31,26,.07)">
-      <td style="font-size:12px;font-weight:600;padding:5px 6px;white-space:nowrap">${fmtD(d)}</td>
+    return `<tr style="border-bottom:1px solid rgba(42,31,26,.07);${rowStyle}">
+      <td style="font-size:12px;font-weight:600;padding:5px 6px;white-space:nowrap">${fmtD(d)}${unsure?' <span title="Usikker prognose (dag 10+)" style="font-size:9px;color:var(--grey)">~</span>':''}</td>
       <td style="font-family:'DM Mono',monospace;font-size:12px;font-weight:700;color:${precipCol};text-align:right;padding:5px 6px">${d.avgPrecip<0.1?'–':d.avgPrecip.toFixed(1)+' mm'}</td>
       ${modelCols}
       <td style="text-align:center;padding:5px 6px"><span title="Modelenighed: ${d.enighed}" style="font-size:10px;color:${d.enighedCol}">●</span></td>
@@ -429,7 +430,7 @@ function buildForecast() {
   ].filter(Boolean).map(t=>`<p style="margin-bottom:.5rem">${t}</p>`).join('');
 
   body.innerHTML = modelLegend + tabel + `<div style="margin-top:10px;font-size:12px;line-height:1.6">${opsummering}</div>`
-    + `<p style="margin-top:8px;font-size:10px;color:var(--grey)">Kilder: ECMWF IFS · GFS (NOAA) · Météo-France · via Open-Meteo · ${lejrIdx.length} dage dækket</p>`;
+    + `<p style="margin-top:8px;font-size:10px;color:var(--grey)">Kilder: ECMWF IFS · GFS (NOAA) · via Open-Meteo · ${lejrIdx.length} dage dækket · Dage markeret ~ er dag 10+ og bør tages med forbehold</p>`;
 }
 
 async function loadAll() {
